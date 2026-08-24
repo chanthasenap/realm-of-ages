@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Realm of Ages — The Eternal War</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="/css/game.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LANDING / AUTH SCREEN
+════════════════════════════════════════════════════════════════════ -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-inner">
+    <div class="game-title">Realm of Ages</div>
+    <div class="game-subtitle">The Eternal War</div>
+    <div class="game-tagline">Five factions. One world. Infinite conquest.</div>
+    <div class="divhr"></div>
+
+    <div class="auth-box">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Enter the Realm</button>
+        <button class="auth-tab" data-tab="register">Join the War</button>
+      </div>
+
+      <div id="auth-login">
+        <div class="field"><label>Commander Email</label><input type="email" id="login-email" placeholder="your@email.com" autocomplete="email"></div>
+        <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"></div>
+        <div class="auth-error" id="login-err"></div>
+        <button class="btn-gold" id="btn-login"><i class="ti ti-sword"></i> March to War</button>
+      </div>
+
+      <div id="auth-register" style="display:none">
+        <div class="field"><label>Commander Name</label><input type="text" id="reg-name" placeholder="How you'll be known" maxlength="32"></div>
+        <div class="field"><label>Email Address</label><input type="email" id="reg-email" placeholder="your@email.com" autocomplete="email"></div>
+        <div class="field"><label>Password</label><input type="password" id="reg-pass" placeholder="Min. 8 characters" autocomplete="new-password"></div>
+        <div class="auth-error" id="reg-err"></div>
+        <button class="btn-gold" id="btn-register"><i class="ti ti-shield-check"></i> Claim Your Destiny</button>
+      </div>
+    </div>
+
+    <div class="faction-preview" id="faction-preview-badges">
+      <!-- injected by JS after gamedata loads -->
+    </div>
+    <div class="landing-tagline-small">5 Factions · Dual Resource Economy · Async Multiplayer · Free to Play</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FACTION SELECT SCREEN
+════════════════════════════════════════════════════════════════════ -->
+<div id="screen-faction" class="screen">
+  <div class="section-label">Choose Your Path</div>
+  <h1 class="section-heading">Select Your Faction</h1>
+  <p class="section-sub">Your faction determines your units, buildings, and resource bonuses. This cannot be changed.</p>
+  <div class="factions-grid" id="factions-grid"></div>
+  <button class="btn-proceed" id="btn-proceed" disabled><i class="ti ti-arrow-right"></i> Begin Your Conquest</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MAIN GAME SCREEN
+════════════════════════════════════════════════════════════════════ -->
+<div id="screen-game" class="screen">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="logo-sm">Realm of Ages</div>
+    <div class="topbar-stats">
+      <div class="tb-stat"><i class="ti ti-coin"></i><span id="tb-gold" class="tb-val gold">0</span></div>
+      <div class="tb-stat"><i class="ti ti-sparkles" style="color:var(--mana)"></i><span id="tb-mana" class="tb-val mana">0</span></div>
+      <div class="tb-stat"><i class="ti ti-map"></i><span id="tb-land" class="tb-val">0</span></div>
+      <div class="tb-stat"><i class="ti ti-sword"></i><span id="tb-army" class="tb-val">0</span></div>
+      <div class="tb-stat"><i class="ti ti-bolt"></i><span id="tb-power" class="tb-val">0</span></div>
+    </div>
+    <div class="topbar-right">
+      <span id="faction-banner" class="faction-banner"></span>
+      <span class="player-name" id="tb-name">Commander</span>
+      <button class="btn-sm" id="btn-logout" title="Log out"><i class="ti ti-logout"></i></button>
+    </div>
+  </header>
+
+  <!-- Economy bar -->
+  <div class="econ-bar">
+    <div class="eb-group">
+      <i class="ti ti-clock" style="color:var(--textmuted)"></i>
+      <span class="eb-label">Turns</span>
+      <div class="eb-track"><div class="eb-fill eb-turns" id="turns-fill"></div></div>
+      <span class="eb-num turns" id="turns-count">0/200</span>
+      <span class="eb-rate" id="turns-next">+1 in 2:00</span>
+    </div>
+    <div class="eb-group">
+      <i class="ti ti-coin" style="color:var(--gold)"></i>
+      <span class="eb-label">Gold</span>
+      <div class="eb-track"><div class="eb-fill eb-gold" id="gold-fill"></div></div>
+      <span class="eb-num gold" id="eb-gold">0</span>
+      <span class="eb-rate" id="eb-gold-rate">+0/hr</span>
+    </div>
+    <div class="eb-group">
+      <i class="ti ti-sparkles" style="color:var(--mana)"></i>
+      <span class="eb-label">Mana</span>
+      <div class="eb-track"><div class="eb-fill eb-mana" id="mana-fill"></div></div>
+      <span class="eb-num mana" id="eb-mana">0</span>
+      <span class="eb-rate" id="eb-mana-rate">+0/hr</span>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="game-layout">
+
+    <!-- Sidebar nav -->
+    <nav class="sidebar">
+      <div class="nav-group">
+        <div class="nav-group-label">Command</div>
+        <div class="nav-item active" data-panel="overview"><i class="ti ti-home"></i><span>Overview</span></div>
+        <div class="nav-item" data-panel="economy"><i class="ti ti-report-money"></i><span>Economy</span></div>
+        <div class="nav-item" data-panel="explore"><i class="ti ti-map-search"></i><span>Explore</span></div>
+        <div class="nav-item" data-panel="build"><i class="ti ti-building-castle"></i><span>Build</span></div>
+        <div class="nav-item" data-panel="recruit"><i class="ti ti-sword"></i><span>Recruit</span></div>
+        <div class="nav-item" data-panel="battle"><i class="ti ti-shield-bolt"></i><span>Battle</span></div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">World</div>
+        <div class="nav-item" data-panel="auction"><i class="ti ti-gavel"></i><span>Auction House</span></div>
+        <div class="nav-item" data-panel="rankings"><i class="ti ti-trophy"></i><span>Rankings</span></div>
+        <div class="nav-item" data-panel="lore"><i class="ti ti-book"></i><span>Faction Lore</span></div>
+      </div>
+    </nav>
+
+    <!-- Panel content area -->
+    <main class="main-panel" id="main-panel">
+      <div class="loading-state"><i class="ti ti-loader-2 spin"></i> Loading your empire…</div>
+    </main>
+
+    <!-- Right sidebar -->
+    <aside class="right-panel">
+      <div class="power-display">
+        <div class="power-number" id="rp-power">0</div>
+        <div class="power-label">Total Power</div>
+        <span class="rank-badge" id="rp-rank">Rank #—</span>
+      </div>
+      <div class="rp-section">
+        <div class="rp-title">Empire Stats</div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-map"></i> Land</span><span class="rp-val" id="rp-land">0 ac</span></div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-building"></i> Buildings</span><span class="rp-val" id="rp-bld">0</span></div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-sword"></i> Army</span><span class="rp-val" id="rp-army-count">0</span></div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-coin"></i> Gold net/hr</span><span class="rp-val gold" id="rp-gold-net">+0</span></div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-sparkles" style="color:var(--mana)"></i> Mana net/hr</span><span class="rp-val mana" id="rp-mana-net">+0</span></div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-shield-check"></i> Victories</span><span class="rp-val green" id="rp-victories">0</span></div>
+        <div class="rp-row"><span class="rp-key"><i class="ti ti-skull"></i> Defeats</span><span class="rp-val red" id="rp-defeats">0</span></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-title">Army Roster</div>
+        <div id="rp-army-list" class="rp-muted">No units yet.</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-title">Items</div>
+        <div id="rp-items-list" class="rp-muted">No items.</div>
+      </div>
+    </aside>
+
+  </div><!-- /game-layout -->
+</div><!-- /screen-game -->
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+
+<script src="/js/api.js"></script>
+<script src="/js/panels.js"></script>
+<script src="/js/game.js"></script>
+</body>
+</html>

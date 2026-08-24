@@ -1,0 +1,24 @@
+# Environment — NEVER commit these
+.env
+*.env
+
+# SQLite database file (local dev only)
+*.db
+*.db-shm
+*.db-wal
+
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

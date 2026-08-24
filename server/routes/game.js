@@ -1,0 +1,334 @@
+/**
+ * server/routes/game.js
+ * All game action endpoints. All require active session.
+ */
+
+const express    = require('express');
+const db         = require('../db');
+const { FACTIONS, AUCTION_ITEMS, calcPower, calcEconomy } = require('../gameData');
+const router     = express.Router();
+
+// ── Auth middleware ────────────────────────────────────────────────
+function requireAuth(req, res, next) {
+  if (!req.session.playerId) return res.status(401).json({ error: 'Not logged in.' });
+  next();
+}
+router.use(requireAuth);
+
+// ── Helpers ───────────────────────────────────────────────────────
+async function getFullState(playerId) {
+  const player    = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
+  const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [playerId]);
+  const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [playerId]);
+  const items     = await db.all('SELECT * FROM items WHERE player_id = ? ORDER BY acquired_at DESC LIMIT 20', [playerId]);
+  const events    = await db.all('SELECT * FROM event_log WHERE player_id = ? ORDER BY occurred_at DESC LIMIT 30', [playerId]);
+  const power     = calcPower(player, buildings, army, player.faction);
+  const economy   = calcEconomy(player, buildings, army, player.faction);
+  return { player, buildings, army, items, events, power, economy };
+}
+
+async function logEvent(playerId, message, category = 'info') {
+  await db.run(
+    'INSERT INTO event_log (player_id, message, category) VALUES (?, ?, ?)',
+    [playerId, message, category]
+  );
+}
+
+async function updatePower(playerId) {
+  const player    = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
+  const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [playerId]);
+  const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [playerId]);
+  const power     = calcPower(player, buildings, army, player.faction);
+  await db.run('UPDATE players SET power = ? WHERE id = ?', [power, playerId]);
+  return power;
+}
+
+// ── POST /api/game/faction ────────────────────────────────────────
+router.post('/faction', async (req, res) => {
+  try {
+    const { faction } = req.body;
+    if (!faction || !FACTIONS[faction]) return res.status(400).json({ error: 'Invalid faction.' });
+
+    const player = await db.get('SELECT faction FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player) return res.status(401).json({ error: 'Player not found.' });
+    if (player.faction) return res.status(400).json({ error: 'Faction already chosen.' });
+
+    await db.run('UPDATE players SET faction = ? WHERE id = ?', [faction, req.session.playerId]);
+    await logEvent(req.session.playerId, `Joined the ${FACTIONS[faction].name}.`, 'info');
+    res.json({ ok: true, faction });
+  } catch (err) {
+    console.error('Faction error:', err);
+    res.status(500).json({ error: 'Could not set faction.' });
+  }
+});
+
+// ── GET /api/game/state ───────────────────────────────────────────
+router.get('/state', async (req, res) => {
+  try {
+    const state = await getFullState(req.session.playerId);
+    res.json({ ok: true, ...state });
+  } catch (err) {
+    console.error('State error:', err);
+    res.status(500).json({ error: 'Could not load state.' });
+  }
+});
+
+// ── POST /api/game/explore ────────────────────────────────────────
+router.post('/explore', async (req, res) => {
+  try {
+    const { type } = req.body;
+    const costs = { scout: 1, expedition: 3, conquest: 8 };
+    const turnCost = costs[type];
+    if (!turnCost) return res.status(400).json({ error: 'Invalid explore type.' });
+
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
+    if (player.turns < turnCost) return res.status(400).json({ error: `Not enough turns. Need ${turnCost}.` });
+
+    let acres, goldBonus, manaBonus = 0;
+    if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = 5; }
+    if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = 20; }
+    if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = 60; manaBonus = 20; }
+
+    await db.run(
+      'UPDATE players SET turns = turns - ?, land = land + ?, gold = gold + ?, mana = mana + ? WHERE id = ?',
+      [turnCost, acres, goldBonus, manaBonus, req.session.playerId]
+    );
+    await updatePower(req.session.playerId);
+
+    const msg = `Explored ${acres} acres. Turn bonus: +${goldBonus}g${manaBonus ? ', +'+manaBonus+'m' : ''}.`;
+    await logEvent(req.session.playerId, msg, 'explore');
+    res.json({ ok: true, acres, goldBonus, manaBonus, message: msg });
+  } catch (err) {
+    console.error('Explore error:', err);
+    res.status(500).json({ error: 'Explore failed.' });
+  }
+});
+
+// ── POST /api/game/build ──────────────────────────────────────────
+router.post('/build', async (req, res) => {
+  try {
+    const { buildingId } = req.body;
+    if (!buildingId) return res.status(400).json({ error: 'buildingId required.' });
+
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
+
+    const faction = FACTIONS[player.faction];
+    const bDef = faction.buildings.find(b => b.id === buildingId);
+    if (!bDef) return res.status(400).json({ error: 'Invalid building.' });
+    if (player.land === 0) return res.status(400).json({ error: 'You need land before building.' });
+    if (player.gold < bDef.goldCost) return res.status(400).json({ error: `Need ${bDef.goldCost} gold.` });
+    if (player.mana < bDef.manaCost) return res.status(400).json({ error: `Need ${bDef.manaCost} mana.` });
+    if (player.turns < bDef.turns)   return res.status(400).json({ error: `Need ${bDef.turns} turns.` });
+
+    const existing = await db.get(
+      'SELECT * FROM buildings WHERE player_id = ? AND building_id = ?',
+      [req.session.playerId, buildingId]
+    );
+    let newLevel;
+    if (existing) {
+      newLevel = existing.level + 1;
+      await db.run(
+        'UPDATE buildings SET level = ? WHERE player_id = ? AND building_id = ?',
+        [newLevel, req.session.playerId, buildingId]
+      );
+    } else {
+      newLevel = 1;
+      await db.run(
+        'INSERT INTO buildings (player_id, building_id, level) VALUES (?, ?, 1)',
+        [req.session.playerId, buildingId]
+      );
+    }
+
+    await db.run(
+      'UPDATE players SET gold = gold - ?, mana = mana - ?, turns = turns - ? WHERE id = ?',
+      [bDef.goldCost, bDef.manaCost, bDef.turns, req.session.playerId]
+    );
+    await updatePower(req.session.playerId);
+
+    const msg = `Built ${bDef.name} (Lv.${newLevel}). Generating +${bDef.goldGen*newLevel}g/hr, +${bDef.manaGen*newLevel}m/hr.`;
+    await logEvent(req.session.playerId, msg, 'build');
+    res.json({ ok: true, building: buildingId, level: newLevel, message: msg });
+  } catch (err) {
+    console.error('Build error:', err);
+    res.status(500).json({ error: 'Build failed.' });
+  }
+});
+
+// ── POST /api/game/recruit ────────────────────────────────────────
+router.post('/recruit', async (req, res) => {
+  try {
+    const { unitId, quantity = 5 } = req.body;
+    if (!unitId) return res.status(400).json({ error: 'unitId required.' });
+    const qty = Math.max(1, Math.min(100, parseInt(quantity) || 5));
+
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
+
+    const faction = FACTIONS[player.faction];
+    const uDef = faction.units.find(u => u.id === unitId);
+    if (!uDef) return res.status(400).json({ error: 'Invalid unit.' });
+
+    const reqBuilding = await db.get(
+      'SELECT level FROM buildings WHERE player_id = ? AND building_id = ?',
+      [req.session.playerId, uDef.req]
+    );
+    if (!reqBuilding || reqBuilding.level < 1)
+      return res.status(400).json({ error: `Requires ${uDef.req} to be built first.` });
+
+    const goldCost = uDef.goldCost * qty;
+    const manaCost = uDef.manaCost * qty;
+    if (player.gold < goldCost) return res.status(400).json({ error: `Need ${goldCost} gold.` });
+    if (player.mana < manaCost) return res.status(400).json({ error: `Need ${manaCost} mana.` });
+    if (player.turns < 1)       return res.status(400).json({ error: 'Need at least 1 turn.' });
+
+    const existing = await db.get(
+      'SELECT quantity FROM army WHERE player_id = ? AND unit_id = ?',
+      [req.session.playerId, unitId]
+    );
+    if (existing) {
+      await db.run(
+        'UPDATE army SET quantity = quantity + ? WHERE player_id = ? AND unit_id = ?',
+        [qty, req.session.playerId, unitId]
+      );
+    } else {
+      await db.run(
+        'INSERT INTO army (player_id, unit_id, quantity) VALUES (?, ?, ?)',
+        [req.session.playerId, unitId, qty]
+      );
+    }
+
+    await db.run(
+      'UPDATE players SET gold = gold - ?, mana = mana - ?, turns = turns - 1 WHERE id = ?',
+      [goldCost, manaCost, req.session.playerId]
+    );
+    await updatePower(req.session.playerId);
+
+    const msg = `Recruited ${qty}× ${uDef.name}.`;
+    await logEvent(req.session.playerId, msg, 'recruit');
+    res.json({ ok: true, unit: unitId, quantity: qty, message: msg });
+  } catch (err) {
+    console.error('Recruit error:', err);
+    res.status(500).json({ error: 'Recruit failed.' });
+  }
+});
+
+// ── POST /api/game/battle ─────────────────────────────────────────
+router.post('/battle', async (req, res) => {
+  try {
+    const { targetId } = req.body;
+    const targetIdInt = parseInt(targetId);
+    if (!targetIdInt) return res.status(400).json({ error: 'targetId required.' });
+
+    const attacker = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (attacker.id === targetIdInt)  return res.status(400).json({ error: 'Cannot attack yourself.' });
+    if (!attacker.faction)             return res.status(400).json({ error: 'Choose a faction first.' });
+    if (attacker.turns < 3)            return res.status(400).json({ error: 'Battle costs 3 turns.' });
+    if (attacker.power === 0)          return res.status(400).json({ error: 'Build an army before attacking.' });
+
+    const defender = await db.get('SELECT * FROM players WHERE id = ?', [targetIdInt]);
+    if (!defender) return res.status(404).json({ error: 'Target not found.' });
+
+    await db.run('UPDATE players SET turns = turns - 3 WHERE id = ?', [attacker.id]);
+
+    const winChance = attacker.power / (attacker.power + (defender.power || 1) * 0.8);
+    const win = Math.random() < winChance;
+
+    let result;
+    if (win) {
+      const goldGain = Math.round(defender.gold * 0.15 + Math.random() * 50);
+      const manaGain = Math.round(defender.mana * 0.10 + Math.random() * 20);
+      const landGain = Math.floor(Math.random() * 8) + 2;
+      await db.run(
+        'UPDATE players SET gold = gold + ?, mana = mana + ?, land = land + ?, victories = victories + 1 WHERE id = ?',
+        [goldGain, manaGain, landGain, attacker.id]
+      );
+      await db.run(
+        'UPDATE players SET gold = MAX(0, gold - ?), mana = MAX(0, mana - ?), defeats = defeats + 1 WHERE id = ?',
+        [goldGain, manaGain, defender.id]
+      );
+      await db.run(
+        'INSERT INTO battle_log (attacker_id, defender_id, result, gold_change, mana_change, land_change) VALUES (?, ?, ?, ?, ?, ?)',
+        [attacker.id, defender.id, 'victory', goldGain, manaGain, landGain]
+      );
+      const msg = `Victory over ${defender.name}! Plundered +${goldGain}g, +${manaGain}m, seized ${landGain} acres.`;
+      await logEvent(attacker.id, msg, 'battle_win');
+      result = { win: true, goldGain, manaGain, landGain, targetName: defender.name, message: msg };
+    } else {
+      const goldLoss = Math.round(attacker.gold * 0.08);
+      const manaLoss = Math.round(attacker.mana * 0.05);
+      await db.run(
+        'UPDATE players SET gold = MAX(0, gold - ?), mana = MAX(0, mana - ?), defeats = defeats + 1 WHERE id = ?',
+        [goldLoss, manaLoss, attacker.id]
+      );
+      await db.run(
+        'INSERT INTO battle_log (attacker_id, defender_id, result, gold_change, mana_change, land_change) VALUES (?, ?, ?, ?, ?, ?)',
+        [attacker.id, defender.id, 'defeat', -goldLoss, -manaLoss, 0]
+      );
+      const msg = `Defeated by ${defender.name}. Lost ${goldLoss}g and ${manaLoss}m.`;
+      await logEvent(attacker.id, msg, 'battle_loss');
+      result = { win: false, goldLoss, manaLoss, targetName: defender.name, message: msg };
+    }
+
+    await updatePower(attacker.id);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('Battle error:', err);
+    res.status(500).json({ error: 'Battle failed.' });
+  }
+});
+
+// ── POST /api/game/auction/buy ────────────────────────────────────
+router.post('/auction/buy', async (req, res) => {
+  try {
+    const { itemId } = req.body;
+    const item = AUCTION_ITEMS.find(i => i.id === itemId);
+    if (!item) return res.status(400).json({ error: 'Item not found.' });
+
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (player.gold < item.goldPrice) return res.status(400).json({ error: `Need ${item.goldPrice} gold.` });
+    if (player.mana < item.manaPrice) return res.status(400).json({ error: `Need ${item.manaPrice} mana.` });
+
+    await db.run(
+      'UPDATE players SET gold = gold - ?, mana = mana - ? WHERE id = ?',
+      [item.goldPrice, item.manaPrice, player.id]
+    );
+    await db.run(
+      'INSERT INTO items (player_id, item_name, item_icon, item_rarity) VALUES (?, ?, ?, ?)',
+      [player.id, item.name, item.icon, item.rarity]
+    );
+    await logEvent(player.id, `Purchased ${item.name} from the Auction House.`, 'auction');
+    res.json({ ok: true, item: item.name });
+  } catch (err) {
+    console.error('Auction error:', err);
+    res.status(500).json({ error: 'Purchase failed.' });
+  }
+});
+
+// ── GET /api/game/rankings ────────────────────────────────────────
+router.get('/rankings', async (req, res) => {
+  try {
+    const rankings = await db.all(
+      'SELECT id, name, faction, power, land, victories, defeats FROM players ORDER BY power DESC LIMIT 50'
+    );
+    res.json({ ok: true, rankings, myId: req.session.playerId });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load rankings.' });
+  }
+});
+
+// ── GET /api/game/targets ─────────────────────────────────────────
+router.get('/targets', async (req, res) => {
+  try {
+    const targets = await db.all(
+      'SELECT id, name, faction, power, land FROM players WHERE id != ? ORDER BY power DESC LIMIT 20',
+      [req.session.playerId]
+    );
+    res.json({ ok: true, targets });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load targets.' });
+  }
+});
+
+module.exports = router;

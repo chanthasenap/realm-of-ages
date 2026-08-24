@@ -1,0 +1,26 @@
+# render.yaml — Render Blueprint
+# Defines the web service. Import this at: https://dashboard.render.com/blueprints
+# Or just create the service manually using the values below.
+
+services:
+  - type: web
+    name: realm-of-ages
+    runtime: node
+    buildCommand: cd server && npm install && cd .. && node server/init-db.js
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true        # Render auto-generates a secure secret
+      - key: DATABASE_URL
+        fromDatabase:
+          name: realm-of-ages-db
+          property: connectionString
+
+databases:
+  - name: realm-of-ages-db
+    databaseName: realm_of_ages
+    user: realm_user
+    plan: free
