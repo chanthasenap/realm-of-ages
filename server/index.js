@@ -34,6 +34,9 @@ app.use(helmet({
   },
 }));
 
+// Trust Render's load balancer (fixes X-Forwarded-For rate limiting warning)
+if (isProd) app.set('trust proxy', 1);
+
 app.use(cors({ origin: isProd ? false : true, credentials: true }));
 app.use(morgan(isProd ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10kb' }));

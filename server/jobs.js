@@ -14,10 +14,18 @@ function startJobs() {
   cron.schedule('*/2 * * * *', async () => {
     try {
       const maxTurns = parseInt(process.env.TURN_MAX) || 200;
-      await db.run(
-        `UPDATE players SET turns = MIN(turns + 1, ?) WHERE turns < ?`,
-        [maxTurns, maxTurns]
-      );
+      // Use LEAST() for PostgreSQL (MIN() doesn't work in UPDATE SET in Postgres)
+      if (db._type === 'postgres') {
+        await db.run(
+          `UPDATE players SET turns = LEAST(turns + 1, $1) WHERE turns < $2`,
+          [maxTurns, maxTurns]
+        );
+      } else {
+        await db.run(
+          `UPDATE players SET turns = MIN(turns + 1, ?) WHERE turns < ?`,
+          [maxTurns, maxTurns]
+        );
+      }
     } catch (err) {
       console.error('[Jobs] Turn regen error:', err.message);
     }
