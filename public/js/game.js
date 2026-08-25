@@ -1,4 +1,6 @@
-(function() {
+// Guard against double-execution
+if (window._gameLoaded) { console.warn('game.js already loaded'); }
+else { window._gameLoaded = true;
 /**
  * public/js/game.js
  * Main game controller. Handles auth screens, state, turn timer, all actions.
@@ -567,7 +569,6 @@ var Game = window.Game = {
     }
   },
 
-  showPanel,
 };
 
 // Wire sidebar nav
@@ -577,5 +578,4 @@ document.querySelectorAll('.nav-item').forEach(item => {
 
 // Boot
 initApp();
-
-})();
+} // end guard
