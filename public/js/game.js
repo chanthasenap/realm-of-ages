@@ -134,9 +134,20 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 });
 
 // ── Faction select ─────────────────────────────────────────────────
-function buildFactionGrid() {
+async function buildFactionGrid() {
   const grid = document.getElementById('factions-grid');
-  if (!grid || !GD) return;
+  if (!grid) return;
+
+  // If GD failed to load earlier, try again now
+  if (!GD) {
+    try {
+      GD = await API.gameData();
+    } catch(e) {
+      grid.innerHTML = '<div style="color:#e87878;padding:20px;text-align:center">Could not load faction data. Please refresh the page.</div>';
+      return;
+    }
+  }
+  if (!GD) return;
   grid.innerHTML = Object.entries(GD.FACTIONS).map(([fid, f]) => `
     <div class="faction-card" id="fc-${fid}" onclick="selectFaction('${fid}')">
       <div class="faction-emblem" style="background:${f.color}11;border-color:${f.color}33">

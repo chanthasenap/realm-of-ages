@@ -49,6 +49,7 @@ const authLimiter = rateLimit({
   message: { error: 'Too many requests. Please wait before trying again.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },  // Render sets this header; suppress warning
 });
 
 const gameLimiter = rateLimit({
@@ -57,6 +58,7 @@ const gameLimiter = rateLimit({
   message: { error: 'Too many requests. Slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },  // Render sets this header; suppress warning
 });
 
 app.use('/api/auth', authLimiter);
