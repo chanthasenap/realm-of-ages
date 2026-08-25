@@ -795,6 +795,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   opacity: 0;
   transform: translateY(10px);
 }
+.faction-confirm-overlay:not(.active) .faction-confirm-lore,
+.faction-confirm-overlay:not(.active) .faction-confirm-units,
+.faction-confirm-overlay:not(.active) .faction-confirm-bonuses {
+  opacity: 0;
+}
 
 /* ═══════════════════════════════════════
    CONFIRM POPUP — LORE + UNITS + BONUSES
@@ -823,20 +828,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   border-left: 2px solid var(--wisp-color, #c9a84c);
   padding-left: 10px;
   margin: 2px 0 4px;
-  opacity: 0;
-  transform: translateY(8px);
-}
-.faction-confirm-overlay.active .faction-confirm-lore {
-  animation: fade-up 0.5s ease 0.5s forwards;
+  opacity: 1;
+  transform: none;
 }
 
 /* Unit roster */
 .faction-confirm-units {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.faction-confirm-overlay.active .faction-confirm-units {
-  animation: fade-up 0.5s ease 0.58s forwards;
+  opacity: 1;
+  transform: none;
 }
 .fcu-label {
   font-size: 8px;
