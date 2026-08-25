@@ -104,7 +104,10 @@ app.get('/api/gamedata', (req, res) => res.json({ FACTIONS, AUCTION_ITEMS }));
 app.get('/api/health',   (req, res) => res.json({ ok: true, ts: Date.now(), env: process.env.NODE_ENV }));
 
 // ── Static frontend ───────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Serve JS/CSS with no-cache so deploys are always fresh
+app.use('/js', express.static(path.join(__dirname, '..', 'public', 'js'), { maxAge: 0, etag: false, lastModified: false, setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
+app.use('/css', express.static(path.join(__dirname, '..', 'public', 'css'), { maxAge: 0, etag: false, lastModified: false, setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
+app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '7d' }));
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Not found.' });
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
