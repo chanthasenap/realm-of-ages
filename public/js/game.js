@@ -373,6 +373,12 @@ async function enterGame() {
   }
   showScreen('game');
   await refreshState();
+  try {
+    const html = Panels.overview();
+    document.getElementById('main-panel').innerHTML = html;
+  } catch(e) {
+    console.error('Panel render error:', e);
+  }
   Game.showPanel('overview');
   startTurnTimer();
 }
