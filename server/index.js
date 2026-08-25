@@ -21,18 +21,8 @@ const PORT   = process.env.PORT || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
 // ── Security headers ─────────────────────────────────────────────
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
-      styleSrc:   ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "fonts.googleapis.com"],
-      fontSrc:    ["'self'", "cdn.jsdelivr.net", "fonts.gstatic.com"],
-      imgSrc:     ["'self'", "data:"],
-      connectSrc: ["'self'"],
-    },
-  },
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
+// CSP disabled: frontend uses inline onclick handlers and CDN-loaded Tabler icons
 
 // Trust Render's load balancer (fixes X-Forwarded-For rate limiting warning)
 if (isProd) app.set('trust proxy', 1);
