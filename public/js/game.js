@@ -367,6 +367,10 @@ document.getElementById('btn-proceed').addEventListener('click', async () => {
 
 // ── Enter game ─────────────────────────────────────────────────────
 async function enterGame() {
+  if (!GD) {
+    try { GD = await API.gameData(); }
+    catch(e) { console.error('Could not load game data:', e); }
+  }
   showScreen('game');
   await refreshState();
   Game.showPanel('overview');

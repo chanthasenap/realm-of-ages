@@ -194,8 +194,13 @@ const Panels = {
       const cnt = (army.find(a => a.unit_id === u.id) || {}).quantity || 0;
       return `
         <div class="unit-row ${!reqBuilt ? 'locked' : ''}">
-          <div class="unit-art" style="border-color:${f.color}22;background:${f.color}11">
-            <i class="ti ${u.icon}" style="color:${f.color}"></i>
+          <div class="unit-art" style="border-color:${f.color}33;background:${f.color}11;overflow:hidden;padding:0">
+            <img src="/images/units/${u.id}.jpg" alt="${u.name}"
+              style="width:100%;height:100%;object-fit:cover;display:block"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div style="display:none;width:100%;height:100%;align-items:center;justify-content:center">
+              <i class="ti ${u.icon}" style="color:${f.color}"></i>
+            </div>
           </div>
           <div class="unit-info">
             <div class="unit-name" style="color:${f.color}">${u.name}</div>
