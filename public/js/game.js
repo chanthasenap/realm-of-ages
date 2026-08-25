@@ -171,16 +171,139 @@ async function buildFactionGrid() {
 function selectFaction(fid) {
   _selectedFaction = fid;
   const f = GD.FACTIONS[fid];
+
+  // Background blur takeover
   const bg = document.getElementById('faction-bg-blur');
   if (bg) { bg.style.backgroundImage = `url('/images/${fid}.jpg')`; bg.classList.add('active'); }
-  const nameEl = document.getElementById('faction-confirm-name');
-  const epithetEl = document.getElementById('faction-confirm-epithet');
+
+  // Artwork panel
   const artEl = document.getElementById('faction-confirm-art');
-  if (nameEl) { nameEl.textContent = f.name; nameEl.style.color = f.color; }
-  if (epithetEl) epithetEl.textContent = f.epithet;
-  if (artEl) { artEl.style.backgroundImage = `url('/images/${fid}.jpg')`; artEl.style.borderColor = f.color + '66'; }
+  if (artEl) {
+    artEl.style.backgroundImage = `url('/images/${fid}.jpg')`;
+    artEl.style.borderRight = `2px solid ${f.color}44`;
+  }
+
+  // Name + seal (uses inner span for clip reveal)
+  const nameText = document.getElementById('faction-confirm-name-text');
+  const nameWrap = document.getElementById('faction-confirm-name');
+  const sealIcon = document.getElementById('faction-confirm-seal-icon');
+  if (nameText) nameText.textContent = f.name;
+  if (nameWrap) nameWrap.style.color = f.color;
+
+  // Set seal icon per faction
+  const sealIcons = { undead:'ti-skull', nature:'ti-leaf', water:'ti-droplet', fire:'ti-flame', holy:'ti-star' };
+  if (sealIcon) sealIcon.innerHTML = `<i class="ti ${sealIcons[fid] || 'ti-sword'}" style="color:${f.color}"></i>`;
+
+  // Set CSS var for glow color on the box
+  const box = document.getElementById('faction-confirm-box');
+  if (box) box.style.setProperty('--fc-glow', f.color + '55');
+
+  // Epithet
+  const epithetEl = document.getElementById('faction-confirm-epithet');
+  if (epithetEl) { epithetEl.textContent = f.epithet; epithetEl.style.color = f.color + '88'; }
+
+  // Reset then show overlay (reset allows re-triggering animations)
   const overlay = document.getElementById('faction-confirm-overlay');
-  if (overlay) overlay.classList.add('active');
+  if (overlay) {
+    overlay.classList.remove('active');
+    void overlay.offsetWidth; // force reflow to restart animations
+    overlay.classList.add('active');
+  }
+
+  // Launch rune particles
+  startRuneParticles(f.color, fid);
+}
+
+// ── Rune particle system ─────────────────────────────────────────
+let _runeAnim = null;
+const RUNE_SETS = {
+  undead: ['☠','✦','⛧','⁂','✧','⚰','⋆'],
+  nature: ['✿','❧','⁂','✦','☘','❋','✤'],
+  water:  ['❋','⊕','✦','⁑','☽','⟡','✧'],
+  fire:   ['✦','⁂','⛤','❈','✸','⊛','✺'],
+  holy:   ['✦','✧','⁂','☀','✯','❂','⊛'],
+};
+
+function startRuneParticles(color, fid) {
+  const canvas = document.getElementById('faction-rune-canvas');
+  if (!canvas) return;
+
+  // Stop previous
+  if (_runeAnim) { cancelAnimationFrame(_runeAnim); _runeAnim = null; }
+  canvas.classList.remove('active');
+
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const runes = RUNE_SETS[fid] || RUNE_SETS.holy;
+  const rgb = hexToRgb(color) || {r:201,g:168,b:76};
+  const particles = [];
+
+  // Spawn ~18 particles
+  for (let i = 0; i < 18; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height + Math.random() * 200,
+      vx: (Math.random() - 0.5) * 0.8,
+      vy: -(0.6 + Math.random() * 1.4),
+      size: 12 + Math.random() * 22,
+      opacity: 0,
+      maxOpacity: 0.15 + Math.random() * 0.35,
+      rune: runes[Math.floor(Math.random() * runes.length)],
+      delay: Math.random() * 60,
+      life: 0,
+      maxLife: 180 + Math.random() * 120,
+      rot: (Math.random() - 0.5) * 0.03,
+      angle: 0,
+    });
+  }
+
+  let frame = 0;
+  canvas.classList.add('active');
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    frame++;
+    let alive = false;
+
+    for (const p of particles) {
+      if (frame < p.delay) continue;
+      p.life++;
+      if (p.life > p.maxLife) continue;
+      alive = true;
+
+      const t = p.life / p.maxLife;
+      p.opacity = t < 0.15
+        ? (t / 0.15) * p.maxOpacity
+        : t > 0.75
+          ? ((1 - t) / 0.25) * p.maxOpacity
+          : p.maxOpacity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.angle += p.rot;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.font = `${p.size}px serif`;
+      ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${p.opacity})`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.rune, 0, 0);
+      ctx.restore();
+    }
+
+    if (alive || frame < 60) _runeAnim = requestAnimationFrame(tick);
+    else { canvas.classList.remove('active'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+  }
+
+  _runeAnim = requestAnimationFrame(tick);
+}
+
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? {r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)} : null;
 }
 
 const cancelBtn = document.getElementById('faction-confirm-cancel');

@@ -66,14 +66,20 @@
       <div class="faction-confirm-art" id="faction-confirm-art"></div>
       <div class="faction-confirm-content">
         <div class="faction-confirm-eyebrow">Your allegiance</div>
-        <div class="faction-confirm-name" id="faction-confirm-name"></div>
+        <div class="faction-confirm-name" id="faction-confirm-name"><span class="name-inner" id="faction-confirm-name-text"></span></div>
+        <div class="faction-confirm-seal" id="faction-confirm-seal">
+          <div class="seal-line" style="transform-origin:right"></div>
+          <span class="seal-icon" id="faction-confirm-seal-icon"><i class="ti ti-sword"></i></span>
+          <div class="seal-line"></div>
+        </div>
         <div class="faction-confirm-epithet" id="faction-confirm-epithet"></div>
         <div class="faction-confirm-warning"><i class="ti ti-alert-triangle"></i> This choice is permanent and cannot be changed.</div>
         <div class="faction-confirm-btns">
           <button class="faction-confirm-cancel" id="faction-confirm-cancel">Choose again</button>
-          <button class="faction-confirm-yes" id="btn-proceed">March to War</button>
+          <button class="faction-confirm-yes" id="btn-proceed"><i class="ti ti-sword"></i> March to War</button>
         </div>
       </div>
+      <canvas id="faction-rune-canvas"></canvas>
     </div>
   </div>
 </div>

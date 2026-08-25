@@ -626,3 +626,172 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .faction-confirm-art { width: 100%; min-height: 200px; border-right: none; border-bottom: 2px solid rgba(255,255,255,0.08); }
   .faction-confirm-content { padding: 24px 20px; }
 }
+
+/* ═══════════════════════════════════════
+   FACTION CONFIRM — FANTASY ANIMATIONS
+═══════════════════════════════════════ */
+
+/* Rune particles canvas behind the confirm box */
+#faction-rune-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 199;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.faction-confirm-overlay.active #faction-rune-canvas,
+#faction-rune-canvas.active { opacity: 1; }
+
+/* Shimmer sweep over the art panel */
+.faction-confirm-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255,255,255,0.18) 50%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  z-index: 2;
+  pointer-events: none;
+}
+.faction-confirm-overlay.active .faction-confirm-art::before {
+  animation: shimmer-sweep 0.9s cubic-bezier(0.4,0,0.2,1) 0.15s forwards;
+}
+@keyframes shimmer-sweep {
+  from { transform: translateX(-120%); }
+  to   { transform: translateX(160%);  }
+}
+
+/* Faction name reveal — letter by letter via clip */
+.faction-confirm-name {
+  position: relative;
+  overflow: hidden;
+}
+.faction-confirm-name .name-inner {
+  display: block;
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 0s, opacity 0s;
+}
+.faction-confirm-overlay.active .faction-confirm-name .name-inner {
+  animation: name-rise 0.6s cubic-bezier(0.22,1,0.36,1) 0.28s forwards;
+}
+@keyframes name-rise {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Epithet fade in */
+.faction-confirm-epithet {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: none;
+}
+.faction-confirm-overlay.active .faction-confirm-epithet {
+  animation: fade-up 0.5s ease 0.45s forwards;
+}
+
+/* Warning fade in */
+.faction-confirm-warning {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.faction-confirm-overlay.active .faction-confirm-warning {
+  animation: fade-up 0.5s ease 0.55s forwards;
+}
+
+/* Buttons stagger in */
+.faction-confirm-btns {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.faction-confirm-overlay.active .faction-confirm-btns {
+  animation: fade-up 0.5s ease 0.65s forwards;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Animated sigil/seal below the name */
+.faction-confirm-seal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 6px;
+  opacity: 0;
+}
+.faction-confirm-overlay.active .faction-confirm-seal {
+  animation: fade-up 0.5s ease 0.38s forwards;
+}
+.seal-line {
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.2;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: none;
+}
+.faction-confirm-overlay.active .seal-line:first-child {
+  animation: line-grow 0.5s ease 0.5s forwards;
+}
+.faction-confirm-overlay.active .seal-line:last-child {
+  animation: line-grow-r 0.5s ease 0.5s forwards;
+}
+@keyframes line-grow   { to { transform: scaleX(1); } }
+@keyframes line-grow-r { to { transform: scaleX(1); } }
+.seal-icon {
+  font-size: 18px;
+  animation: seal-spin 0s linear;
+}
+.faction-confirm-overlay.active .seal-icon {
+  animation: seal-pulse 2s ease-in-out 0.4s infinite;
+}
+@keyframes seal-pulse {
+  0%,100% { transform: scale(1);    opacity: 0.7; }
+  50%      { transform: scale(1.12); opacity: 1;   }
+}
+
+/* Confirm box border glow pulse */
+.faction-confirm-box {
+  position: relative;
+}
+.faction-confirm-overlay.active .faction-confirm-box::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  border: 1px solid var(--fc-glow, rgba(201,168,76,0.4));
+  animation: border-pulse 2.5s ease-in-out 0.5s infinite;
+  pointer-events: none;
+}
+@keyframes border-pulse {
+  0%,100% { opacity: 0.3; }
+  50%      { opacity: 0.9; }
+}
+
+/* "March to War" button — glow pulse on hover */
+.faction-confirm-yes:hover {
+  animation: btn-glow 1.2s ease-in-out infinite;
+}
+@keyframes btn-glow {
+  0%,100% { box-shadow: 0 0 8px rgba(201,168,76,0.3); }
+  50%      { box-shadow: 0 0 22px rgba(201,168,76,0.7); }
+}
+
+/* Reset animations when overlay closes */
+.faction-confirm-overlay:not(.active) .faction-confirm-name .name-inner,
+.faction-confirm-overlay:not(.active) .faction-confirm-epithet,
+.faction-confirm-overlay:not(.active) .faction-confirm-warning,
+.faction-confirm-overlay:not(.active) .faction-confirm-btns,
+.faction-confirm-overlay:not(.active) .faction-confirm-seal {
+  animation: none;
+  opacity: 0;
+  transform: translateY(10px);
+}
