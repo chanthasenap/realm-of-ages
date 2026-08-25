@@ -1,3 +1,4 @@
+(function() {
 /**
  * public/js/game.js
  * Main game controller. Handles auth screens, state, turn timer, all actions.
@@ -576,3 +577,5 @@ document.querySelectorAll('.nav-item').forEach(item => {
 
 // Boot
 initApp();
+
+})();
