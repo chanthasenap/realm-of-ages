@@ -137,46 +137,60 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 async function buildFactionGrid() {
   const grid = document.getElementById('factions-grid');
   if (!grid) return;
-
-  // If GD failed to load earlier, try again now
   if (!GD) {
-    try {
-      GD = await API.gameData();
-    } catch(e) {
-      grid.innerHTML = '<div style="color:#e87878;padding:20px;text-align:center">Could not load faction data. Please refresh the page.</div>';
+    try { GD = await API.gameData(); }
+    catch(e) {
+      grid.innerHTML = '<div style="color:#e87878;padding:40px;text-align:center">Could not load faction data. Please refresh.</div>';
       return;
     }
   }
   if (!GD) return;
   grid.innerHTML = Object.entries(GD.FACTIONS).map(([fid, f]) => `
-    <div class="faction-card" id="fc-${fid}" onclick="selectFaction('${fid}')">
-      <div class="faction-art" style="background-image:url('/images/${fid}.jpg');border-color:${f.color}44">
-        <div class="faction-art-overlay" style="background:linear-gradient(to top, #0d0d12 30%, transparent 100%)"></div>
-        <div class="faction-art-icon"><i class="ti ${f.icon}" style="color:${f.color}"></i></div>
+    <div class="faction-strip-card" id="fc-${fid}" data-fid="${fid}">
+      <div class="fsc-art" style="background-image:url('/images/${fid}.jpg')">
+        <div class="fsc-art-vignette"></div>
       </div>
-      <div class="faction-name" style="color:${f.color}">${f.name}</div>
-      <div class="faction-epithet">${f.epithet}</div>
-      <div class="faction-lore">${(f.lore||f.epithet||'').substring(0, 160)}…</div>
-      <div class="unit-tags">${f.units.slice(0,4).map(u =>
-        `<span class="unit-tag" style="background:${f.color}11;color:${f.color};border:1px solid ${f.color}22">
-          <i class="ti ${u.icon}"></i>${u.name}
-        </span>`
-      ).join('')}</div>
+      <div class="fsc-content">
+        <div class="fsc-icon" style="color:${f.color}"><i class="ti ${f.icon}"></i></div>
+        <div class="fsc-name" style="color:${f.color}">${f.name}</div>
+        <div class="fsc-epithet">${f.epithet}</div>
+        <div class="fsc-units">${f.units.slice(0,3).map(u =>
+          `<span class="fsc-unit-tag" style="border-color:${f.color}44;color:${f.color}cc"><i class="ti ${u.icon}"></i>${u.name}</span>`
+        ).join('')}</div>
+        <div class="fsc-bonuses">
+          <span style="color:#c9a84c"><i class="ti ti-coin"></i> +${Math.round(f.goldBonus*100)}% gold</span>
+          <span style="color:#a89cf0"><i class="ti ti-sparkles"></i> +${Math.round(f.manaBonus*100)}% mana</span>
+        </div>
+        <button class="fsc-choose-btn" style="--fc:${f.color}" onclick="selectFaction('${fid}')">
+          <i class="ti ti-sword"></i> Choose Faction
+        </button>
+      </div>
     </div>`).join('');
 }
 
 function selectFaction(fid) {
   _selectedFaction = fid;
-  document.querySelectorAll('.faction-card').forEach(c => c.classList.remove('selected'));
-  const card = document.getElementById('fc-' + fid);
   const f = GD.FACTIONS[fid];
-  card.classList.add('selected');
-  card.style.borderColor = f.color;
-  card.style.boxShadow = `0 0 20px ${f.color}20`;
-  const btn = document.getElementById('btn-proceed');
-  btn.disabled = false;
-  btn.innerHTML = `<i class="ti ti-arrow-right"></i> March with the ${f.name}`;
+  const bg = document.getElementById('faction-bg-blur');
+  if (bg) { bg.style.backgroundImage = `url('/images/${fid}.jpg')`; bg.classList.add('active'); }
+  const nameEl = document.getElementById('faction-confirm-name');
+  const epithetEl = document.getElementById('faction-confirm-epithet');
+  const artEl = document.getElementById('faction-confirm-art');
+  if (nameEl) { nameEl.textContent = f.name; nameEl.style.color = f.color; }
+  if (epithetEl) epithetEl.textContent = f.epithet;
+  if (artEl) { artEl.style.backgroundImage = `url('/images/${fid}.jpg')`; artEl.style.borderColor = f.color + '66'; }
+  const overlay = document.getElementById('faction-confirm-overlay');
+  if (overlay) overlay.classList.add('active');
 }
+
+const cancelBtn = document.getElementById('faction-confirm-cancel');
+if (cancelBtn) cancelBtn.addEventListener('click', () => {
+  const overlay = document.getElementById('faction-confirm-overlay');
+  const bg = document.getElementById('faction-bg-blur');
+  if (overlay) overlay.classList.remove('active');
+  if (bg) bg.classList.remove('active');
+  _selectedFaction = null;
+});
 
 document.getElementById('btn-proceed').addEventListener('click', async () => {
   if (!_selectedFaction) return;

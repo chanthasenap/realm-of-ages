@@ -314,3 +314,314 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .faction-art { width:100%; height:140px; border-radius:var(--rad) var(--rad) 0 0; background-size:cover; background-position:center top; position:relative; overflow:hidden; border:1px solid var(--border); margin-bottom:12px; }
 .faction-art-overlay { position:absolute; inset:0; }
 .faction-art-icon { position:absolute; bottom:8px; left:10px; font-size:22px; z-index:1; }
+
+/* ═══════════════════════════════════════
+   CINEMATIC FACTION SELECT
+═══════════════════════════════════════ */
+.screen-faction-cinematic {
+  position: relative;
+  min-height: 100vh;
+  background: #0a0a0f;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Blurred background that activates on selection */
+.faction-bg-blur {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(40px) brightness(0.25);
+  transform: scale(1.1);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.faction-bg-blur.active { opacity: 1; }
+
+/* Header */
+.faction-header {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 52px 20px 36px;
+}
+.faction-header-eyebrow {
+  font-size: 10px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.faction-header-title {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 300;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 10px;
+  line-height: 1.1;
+}
+.faction-header-sub {
+  font-size: 13px;
+  color: var(--textm);
+  letter-spacing: 1px;
+}
+
+/* Strip of faction cards */
+.faction-stage { position: relative; z-index: 1; width: 100%; padding: 0 16px 40px; }
+.factions-strip {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+/* Each faction card — tall portrait format */
+.faction-strip-card {
+  position: relative;
+  width: 220px;
+  height: 440px;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1),
+              border-color 0.25s ease,
+              box-shadow 0.35s ease;
+}
+.faction-strip-card:hover {
+  transform: translateY(-12px) scale(1.03);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+  z-index: 2;
+}
+
+/* Full artwork filling the card */
+.fsc-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center top;
+  transition: transform 0.4s ease;
+}
+.faction-strip-card:hover .fsc-art { transform: scale(1.06); }
+
+/* Vignette — dark gradient from bottom, lighter on sides */
+.fsc-art-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, #0a0a0f 0%, rgba(10,10,15,0.7) 40%, rgba(10,10,15,0.15) 70%, transparent 100%),
+    linear-gradient(to right, rgba(10,10,15,0.5) 0%, transparent 30%, transparent 70%, rgba(10,10,15,0.5) 100%);
+}
+
+/* Text content at the bottom of card */
+.fsc-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fsc-icon { font-size: 22px; margin-bottom: 2px; }
+.fsc-name { font-size: 16px; font-weight: 600; letter-spacing: 0.5px; line-height: 1.2; }
+.fsc-epithet { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+.fsc-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease 0.05s, transform 0.3s ease 0.05s;
+}
+.faction-strip-card:hover .fsc-units { opacity: 1; transform: translateY(0); }
+.fsc-unit-tag {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.fsc-bonuses {
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.3s ease 0.1s;
+}
+.fsc-bonuses span { display: flex; align-items: center; gap: 3px; }
+.faction-strip-card:hover .fsc-bonuses { opacity: 1; }
+
+/* Choose button — hidden until hover */
+.fsc-choose-btn {
+  margin-top: 8px;
+  padding: 9px 14px;
+  background: rgba(0,0,0,0.6);
+  border: 1.5px solid var(--fc, #c9a84c);
+  color: var(--fc, #c9a84c);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease 0.08s,
+              transform 0.25s ease 0.08s,
+              background 0.15s ease;
+  width: 100%;
+}
+.fsc-choose-btn:hover { background: rgba(0,0,0,0.85); }
+.faction-strip-card:hover .fsc-choose-btn { opacity: 1; transform: translateY(0); }
+
+/* ── Confirmation Overlay ── */
+.faction-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  padding: 20px;
+}
+.faction-confirm-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.faction-confirm-box {
+  display: flex;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  max-width: 780px;
+  width: 100%;
+  transform: scale(0.92) translateY(20px);
+  transition: transform 0.4s cubic-bezier(0.34,1.4,0.64,1);
+  background: #0f0f18;
+}
+.faction-confirm-overlay.active .faction-confirm-box {
+  transform: scale(1) translateY(0);
+}
+
+/* Left: big artwork panel */
+.faction-confirm-art {
+  width: 320px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  border-right: 2px solid rgba(255,255,255,0.08);
+  min-height: 380px;
+}
+
+/* Right: text content */
+.faction-confirm-content {
+  flex: 1;
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+.faction-confirm-eyebrow {
+  font-size: 10px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
+.faction-confirm-name {
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  line-height: 1.1;
+}
+.faction-confirm-epithet {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 8px;
+}
+.faction-confirm-warning {
+  font-size: 11px;
+  color: #e8b878;
+  background: rgba(232,184,120,0.08);
+  border: 1px solid rgba(232,184,120,0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0;
+}
+.faction-confirm-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.faction-confirm-cancel {
+  flex: 1;
+  padding: 11px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.faction-confirm-cancel:hover { border-color: rgba(255,255,255,0.35); color: rgba(255,255,255,0.8); }
+.faction-confirm-yes {
+  flex: 2;
+  padding: 11px;
+  background: rgba(201,168,76,0.12);
+  border: 1.5px solid rgba(201,168,76,0.6);
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.faction-confirm-yes:hover { background: rgba(201,168,76,0.22); border-color: var(--gold); }
+
+@media (max-width: 640px) {
+  .faction-strip-card { width: 160px; height: 340px; }
+  .faction-confirm-box { flex-direction: column; }
+  .faction-confirm-art { width: 100%; min-height: 200px; border-right: none; border-bottom: 2px solid rgba(255,255,255,0.08); }
+  .faction-confirm-content { padding: 24px 20px; }
+}
