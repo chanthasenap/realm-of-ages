@@ -4,7 +4,8 @@
  * Relies on window.GD (gamedata) and window.GS (game state).
  */
 
-const Panels = {
+window.Panels = window.Panels || {};
+const Panels = window.Panels = {
 
   overview() {
     const { player, buildings, army, items, events, economy } = GS;

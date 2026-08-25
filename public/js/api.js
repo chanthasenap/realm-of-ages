@@ -3,7 +3,8 @@
  * Thin fetch wrapper for all backend API calls.
  */
 
-const API = {
+window.API = window.API || {};
+const API = window.API = {
   async _fetch(method, path, body) {
     const opts = { method, credentials: 'include', headers: { 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
