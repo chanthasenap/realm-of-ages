@@ -1,14 +1,9 @@
 {
   "name": "realm-of-ages",
   "version": "1.0.0",
-  "description": "Realm of Ages — The Eternal War",
   "private": true,
-  "engines": { "node": ">=18" },
   "scripts": {
-    "start":       "cd server && npm start",
-    "dev":         "cd server && npm run dev",
-    "install:all": "cd server && npm install",
-    "db:init":     "cd server && node init-db.js",
-    "db:check":    "cd server && node check-db.js"
+    "build": "npm install --prefix client && npm run build --prefix client && npm install --prefix server",
+    "start": "node server/index.js"
   }
 }

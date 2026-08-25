@@ -1,0 +1,111 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0d0d12;
+  --bg2:     #13131c;
+  --bg3:     #1a1a26;
+  --bg4:     #222230;
+  --gold:    #c9a84c;
+  --gold2:   #e8c96a;
+  --mana:    #7c6fe0;
+  --mana2:   #a89cf0;
+  --text:    #e2dcd0;
+  --muted:   #7a7a90;
+  --silver:  #9090a8;
+  --border:  rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.14);
+  --rad:     4px;
+  --rad2:    6px;
+  --green:   #6dccaa;
+  --red:     #e87878;
+}
+
+html, body, #root {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input  { font-family: inherit; }
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus { border-color: rgba(201,168,76,0.4); }
+
+/* ── Number input spinners ── */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: inner-spin-button;
+  opacity: 1;
+  width: 18px;
+  cursor: pointer;
+  filter: invert(1) brightness(0.65);
+  border: none;
+  background: transparent;
+  margin-left: 4px;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Animated icon keyframes ─────────────────────────────────────────────── */
+@keyframes anim-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.55) rotate(-8deg); }
+  70%  { transform: scale(0.88) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes anim-strike {
+  0%   { transform: rotate(0deg) translateY(0); }
+  25%  { transform: rotate(-28deg) translateY(-3px); }
+  55%  { transform: rotate(12deg) translateY(1px); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+@keyframes anim-slideUp {
+  0%   { transform: translateY(0); opacity: 1; }
+  35%  { transform: translateY(-6px); opacity: 0.5; }
+  60%  { transform: translateY(3px); opacity: 1; }
+  100% { transform: translateY(0); }
+}
+@keyframes anim-shake {
+  0%   { transform: rotate(0deg); }
+  20%  { transform: rotate(-14deg); }
+  40%  { transform: rotate(12deg); }
+  60%  { transform: rotate(-8deg); }
+  80%  { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes anim-slash {
+  0%   { transform: rotate(0deg) scale(1); }
+  30%  { transform: rotate(-35deg) scale(1.3); }
+  65%  { transform: rotate(15deg) scale(0.9); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@keyframes anim-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.anim-icon { display: inline-flex; align-items: center; justify-content: center; }
+.anim-pop   .anim-icon { animation: anim-pop   0.42s cubic-bezier(.36,.07,.19,.97) forwards; }
+.anim-strike .anim-icon { animation: anim-strike 0.38s cubic-bezier(.36,.07,.19,.97) forwards; }
+.anim-slideUp .anim-icon { animation: anim-slideUp 0.36s ease forwards; }
+.anim-shake .anim-icon { animation: anim-shake 0.4s ease forwards; }
+.anim-slash .anim-icon { animation: anim-slash 0.38s cubic-bezier(.36,.07,.19,.97) forwards; }
+.anim-spin .anim-icon { animation: anim-spin 0.45s linear forwards; }
