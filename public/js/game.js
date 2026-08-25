@@ -238,12 +238,9 @@ function selectFaction(fid) {
       </span>`;
   }
 
-  // Set wisp glow color via CSS variable
+  // Set wisp glow color + show overlay
   const overlay = document.getElementById('faction-confirm-overlay');
   if (overlay) overlay.style.setProperty('--wisp-color', f.color);
-
-  // Reset then show overlay (reset allows re-triggering animations)
-  const overlay = document.getElementById('faction-confirm-overlay');
   if (overlay) {
     overlay.classList.remove('active');
     void overlay.offsetWidth; // force reflow to restart animations
