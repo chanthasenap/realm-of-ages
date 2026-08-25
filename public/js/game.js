@@ -31,7 +31,7 @@ function setLoading(btn, isLoading) {
   if (!btn) return;
   btn.disabled = isLoading;
   btn._originalHtml = btn._originalHtml || btn.innerHTML;
-  btn.innerHTML = isLoading ? '<i class="ti ti-loader-2 spin"></i> Please wait…' : btn._originalHtml;
+  btn.innerHTML = isLoading ? '<i class="ti ti-loader-2 spin"></i> Please wait...' : btn._originalHtml;
 }
 
 function showError(elId, msg) {
