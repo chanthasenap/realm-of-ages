@@ -1,6 +1,8 @@
-// Guard against double-execution
-if (window._gameLoaded) { console.warn('game.js already loaded'); }
-else { window._gameLoaded = true;
+// Prevent double-initialization from browser cache conflicts
+if (window._roaInit) { console.warn('[ROA] Already initialized, skipping.'); }
+else {
+window._roaInit = true;
+
 /**
  * public/js/game.js
  * Main game controller. Handles auth screens, state, turn timer, all actions.
@@ -578,4 +580,4 @@ document.querySelectorAll('.nav-item').forEach(item => {
 
 // Boot
 initApp();
-} // end guard
+} // end _roaInit guard
