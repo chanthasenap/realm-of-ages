@@ -150,12 +150,13 @@ async function buildFactionGrid() {
   if (!GD) return;
   grid.innerHTML = Object.entries(GD.FACTIONS).map(([fid, f]) => `
     <div class="faction-card" id="fc-${fid}" onclick="selectFaction('${fid}')">
-      <div class="faction-emblem" style="background:${f.color}11;border-color:${f.color}33">
-        <i class="ti ${f.icon}" style="color:${f.color}"></i>
+      <div class="faction-art" style="background-image:url('/images/${fid}.jpg');border-color:${f.color}44">
+        <div class="faction-art-overlay" style="background:linear-gradient(to top, #0d0d12 30%, transparent 100%)"></div>
+        <div class="faction-art-icon"><i class="ti ${f.icon}" style="color:${f.color}"></i></div>
       </div>
       <div class="faction-name" style="color:${f.color}">${f.name}</div>
       <div class="faction-epithet">${f.epithet}</div>
-      <div class="faction-lore">${(f.lore||f.epithet||'').substring(0, 180)}…</div>
+      <div class="faction-lore">${(f.lore||f.epithet||'').substring(0, 160)}…</div>
       <div class="unit-tags">${f.units.slice(0,4).map(u =>
         `<span class="unit-tag" style="background:${f.color}11;color:${f.color};border:1px solid ${f.color}22">
           <i class="ti ${u.icon}"></i>${u.name}

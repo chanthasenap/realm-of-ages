@@ -309,3 +309,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   .topbar-stats { display: none; }
   .eco-grid, .eco-rules { grid-template-columns: 1fr; }
 }
+
+/* Faction art images */
+.faction-art { width:100%; height:140px; border-radius:var(--rad) var(--rad) 0 0; background-size:cover; background-position:center top; position:relative; overflow:hidden; border:1px solid var(--border); margin-bottom:12px; }
+.faction-art-overlay { position:absolute; inset:0; }
+.faction-art-icon { position:absolute; bottom:8px; left:10px; font-size:22px; z-index:1; }
