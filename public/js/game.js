@@ -202,6 +202,46 @@ function selectFaction(fid) {
   const epithetEl = document.getElementById('faction-confirm-epithet');
   if (epithetEl) { epithetEl.textContent = f.epithet; epithetEl.style.color = f.color + '88'; }
 
+  // Lore snippet (first sentence of lore)
+  const loreEl = document.getElementById('faction-confirm-lore');
+  if (loreEl && f.lore) {
+    const firstPara = f.lore.split('\n\n')[0];
+    const firstSentence = firstPara.split(/[.!?]/)[0] + '.';
+    loreEl.textContent = firstSentence;
+  }
+
+  // Unit roster
+  const unitsEl = document.getElementById('faction-confirm-units');
+  if (unitsEl && f.units) {
+    unitsEl.innerHTML = '<div class="fcu-label">Units</div>' +
+      f.units.map(u => `
+        <div class="fcu-row">
+          <i class="ti ${u.icon}" style="color:${f.color}cc"></i>
+          <span class="fcu-name">${u.name}</span>
+          <span class="fcu-stats">
+            <span title="Attack"><i class="ti ti-sword" style="font-size:9px"></i> ${u.atk}</span>
+            <span title="Defense"><i class="ti ti-shield" style="font-size:9px"></i> ${u.def}</span>
+            <span title="Power"><i class="ti ti-bolt" style="font-size:9px"></i> ${u.power}</span>
+          </span>
+        </div>`).join('');
+  }
+
+  // Bonuses
+  const bonusEl = document.getElementById('faction-confirm-bonuses');
+  if (bonusEl) {
+    bonusEl.innerHTML = `
+      <span class="fcb-pill" style="border-color:${f.color}44;color:${f.color}">
+        <i class="ti ti-coin"></i> +${Math.round(f.goldBonus*100)}% gold generation
+      </span>
+      <span class="fcb-pill" style="border-color:#7c6fe044;color:#a89cf0">
+        <i class="ti ti-sparkles"></i> +${Math.round(f.manaBonus*100)}% mana generation
+      </span>`;
+  }
+
+  // Set wisp glow color via CSS variable
+  const overlay = document.getElementById('faction-confirm-overlay');
+  if (overlay) overlay.style.setProperty('--wisp-color', f.color);
+
   // Reset then show overlay (reset allows re-triggering animations)
   const overlay = document.getElementById('faction-confirm-overlay');
   if (overlay) {
