@@ -795,3 +795,190 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   opacity: 0;
   transform: translateY(10px);
 }
+
+/* ═══════════════════════════════════════
+   CONFIRM POPUP — LORE + UNITS + BONUSES
+═══════════════════════════════════════ */
+
+/* Make the confirm box taller and wider to fit new content */
+.faction-confirm-box {
+  max-width: 900px !important;
+}
+.faction-confirm-art {
+  width: 340px !important;
+  min-height: 480px !important;
+}
+.faction-confirm-content {
+  gap: 7px !important;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+/* Lore text */
+.faction-confirm-lore {
+  font-size: 12px;
+  line-height: 1.75;
+  color: rgba(255,255,255,0.45);
+  font-style: italic;
+  border-left: 2px solid var(--wisp-color, #c9a84c);
+  padding-left: 10px;
+  margin: 2px 0 4px;
+  opacity: 0;
+  transform: translateY(8px);
+}
+.faction-confirm-overlay.active .faction-confirm-lore {
+  animation: fade-up 0.5s ease 0.5s forwards;
+}
+
+/* Unit roster */
+.faction-confirm-units {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.faction-confirm-overlay.active .faction-confirm-units {
+  animation: fade-up 0.5s ease 0.58s forwards;
+}
+.fcu-label {
+  font-size: 8px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  margin-bottom: 5px;
+}
+.fcu-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px;
+}
+.fcu-row i { font-size: 13px; flex-shrink: 0; }
+.fcu-name { flex: 1; color: rgba(255,255,255,0.75); }
+.fcu-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+}
+.fcu-stats span { display: flex; align-items: center; gap: 2px; }
+
+/* Bonuses pills */
+.faction-confirm-bonuses {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  opacity: 0;
+  transform: translateY(8px);
+}
+.faction-confirm-overlay.active .faction-confirm-bonuses {
+  animation: fade-up 0.5s ease 0.64s forwards;
+}
+.fcb-pill {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.5px;
+}
+.fcb-pill i { font-size: 11px; }
+
+/* Re-stagger warning + buttons later now that there's more content */
+.faction-confirm-overlay.active .faction-confirm-warning {
+  animation: fade-up 0.5s ease 0.72s forwards !important;
+}
+.faction-confirm-overlay.active .faction-confirm-btns {
+  animation: fade-up 0.5s ease 0.82s forwards !important;
+}
+
+/* ═══════════════════════════════════════
+   WISPY GLOW ANIMATIONS
+═══════════════════════════════════════ */
+
+/* Glowing orbs that float up behind the confirm box */
+.faction-confirm-overlay::before,
+.faction-confirm-overlay::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  filter: blur(60px);
+  transition: opacity 0.8s ease;
+}
+
+/* Large ambient glow — bottom center */
+.faction-confirm-overlay::before {
+  width: 500px;
+  height: 300px;
+  background: var(--wisp-color, #c9a84c);
+  bottom: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Smaller side glow — top right */
+.faction-confirm-overlay::after {
+  width: 280px;
+  height: 280px;
+  background: var(--wisp-color, #c9a84c);
+  top: 60px;
+  right: 80px;
+  opacity: 0;
+  filter: blur(80px);
+}
+
+.faction-confirm-overlay.active::before {
+  opacity: 0.09;
+  animation: wisp-breathe 4s ease-in-out 0.3s infinite;
+}
+.faction-confirm-overlay.active::after {
+  opacity: 0.05;
+  animation: wisp-breathe 6s ease-in-out 1s infinite reverse;
+}
+
+@keyframes wisp-breathe {
+  0%,100% { opacity: 0.06; transform: translateX(-50%) scale(1)   translateY(0); }
+  50%      { opacity: 0.12; transform: translateX(-50%) scale(1.15) translateY(-20px); }
+}
+
+/* Glow ring on the artwork border */
+.faction-confirm-art {
+  box-shadow: none;
+  transition: box-shadow 0.6s ease;
+}
+.faction-confirm-overlay.active .faction-confirm-art {
+  animation: art-glow 3s ease-in-out 0.5s infinite;
+}
+@keyframes art-glow {
+  0%,100% { box-shadow: 0 0 20px rgba(0,0,0,0), inset 0 0 30px rgba(0,0,0,0.3); }
+  50%      { box-shadow: 0 0 40px var(--wisp-color, #c9a84c), inset 0 0 20px rgba(0,0,0,0.2); }
+}
+
+/* Lore border pulse */
+.faction-confirm-overlay.active .faction-confirm-lore {
+  border-left-color: var(--wisp-color, #c9a84c);
+  animation: fade-up 0.5s ease 0.5s forwards, lore-border-pulse 3s ease-in-out 1.2s infinite;
+}
+@keyframes lore-border-pulse {
+  0%,100% { border-left-color: var(--wisp-color, #c9a84c); }
+  50%      { border-left-color: rgba(255,255,255,0.6); }
+}
+
+/* "March to War" inner glow when hovered */
+.faction-confirm-yes {
+  position: relative;
+  overflow: hidden;
+}
+.faction-confirm-yes::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, var(--wisp-color, #c9a84c) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.faction-confirm-yes:hover::before { opacity: 0.15; }

@@ -7,7 +7,7 @@
 const FACTIONS = {
   undead: {
     name: 'Vorath Dominion', icon: 'ti-skull', color: '#c878e8',
-    epithet: 'The Undying Empire', goldBonus: 0, manaBonus: 0.15,
+    epithet: 'The Undying Empire', lore: 'When the Great Plague swept their lands, archmage Mordikael struck a covenant with the void: eternal existence for eternal servitude. Vethras Prime became the first city of the dead — its citizens not mindless shambling corpses, but sentient undead, memories intact, loyalty absolute.', goldBonus: 0, manaBonus: 0.15,
     buildings: [
       { id:'crypt',       name:'Bone Crypt',         icon:'ti-building',          goldCost:80,   manaCost:20,  turns:2,  goldGen:8,  manaGen:5  },
       { id:'plagupit',    name:'Plague Pit',          icon:'ti-biohazard',         goldCost:120,  manaCost:35,  turns:3,  goldGen:12, manaGen:8  },
@@ -25,7 +25,7 @@ const FACTIONS = {
   },
   nature: {
     name: 'Sylvaran Accord', icon: 'ti-leaf', color: '#78d848',
-    epithet: 'The Living Covenant', goldBonus: 0.1, manaBonus: 0.2,
+    epithet: 'The Living Covenant', lore: 'For ten thousand years the Sylvaran have guarded nature\'s balance. Their cities grow within living trees, their armies rise from the forest itself. The Accord was first spoken by druid-queen Sylvara Aethon — a covenant between elves, treants, and ancient spirits that has never been broken.', goldBonus: 0.1, manaBonus: 0.2,
     buildings: [
       { id:'grove',      name:'Ancient Grove',    icon:'ti-trees',             goldCost:80,  manaCost:20,  turns:2,  goldGen:10, manaGen:6  },
       { id:'heartwood',  name:'Heartwood Hall',   icon:'ti-tree',              goldCost:150, manaCost:40,  turns:3,  goldGen:14, manaGen:10 },
@@ -43,7 +43,7 @@ const FACTIONS = {
   },
   water: {
     name: 'Thalassian Depths', icon: 'ti-droplet', color: '#78b8e8',
-    epithet: 'Sovereigns of the Deep', goldBonus: 0.05, manaBonus: 0.25,
+    epithet: 'Sovereigns of the Deep', lore: 'Below the waves, time moves differently. The Abyssal Court has deliberated policy for three thousand years in a single session. When a coastal kingdom once tried to drain the Thalassian Shallows, three cities vanished beneath tidal waves overnight. The sea does not negotiate.', goldBonus: 0.05, manaBonus: 0.25,
     buildings: [
       { id:'tidalpool',    name:'Tidal Pool Barracks', icon:'ti-waves',    goldCost:80,  manaCost:20,  turns:2,  goldGen:9,  manaGen:8  },
       { id:'coralfort',    name:'Coral Fortress',      icon:'ti-shield',   goldCost:130, manaCost:40,  turns:3,  goldGen:13, manaGen:12 },
@@ -61,7 +61,7 @@ const FACTIONS = {
   },
   fire: {
     name: 'Emberpeak Horde', icon: 'ti-flame', color: '#e87848',
-    epithet: 'The Unbroken War-Tide', goldBonus: 0.2, manaBonus: 0,
+    epithet: 'The Unbroken War-Tide', lore: 'Forged in the belly of the Emberpeak Caldera, the Horde knows only two truths: fire purifies, and war decides. Red Dragons have entered a mutually beneficial arrangement — the Horde points them at targets worth destroying, and the dragons get to destroy things, which they enjoy.', goldBonus: 0.2, manaBonus: 0,
     buildings: [
       { id:'warcamp',   name:'War Camp',         icon:'ti-campfire',  goldCost:70,   manaCost:10,  turns:2,  goldGen:12, manaGen:3  },
       { id:'forge',     name:'Volcanic Forge',   icon:'ti-hammer',    goldCost:140,  manaCost:30,  turns:3,  goldGen:18, manaGen:6  },
@@ -79,7 +79,7 @@ const FACTIONS = {
   },
   holy: {
     name: 'Celestian Vanguard', icon: 'ti-star', color: '#e8d878',
-    epithet: 'The Divine Shield', goldBonus: 0.1, manaBonus: 0.1,
+    epithet: 'The Divine Shield', lore: 'The First Covenant was signed in light. When darkness pressed in from all sides, twelve mortal champions ascended to the Celestial Plane and returned with a divine mandate: hold the line. The Vanguard has held it for four thousand years. That line has never broken.', goldBonus: 0.1, manaBonus: 0.1,
     buildings: [
       { id:'chapel',      name:'Field Chapel',     icon:'ti-building-church',   goldCost:90,   manaCost:25,  turns:2,  goldGen:10, manaGen:10 },
       { id:'barracks',    name:'Holy Barracks',    icon:'ti-shield',            goldCost:130,  manaCost:35,  turns:3,  goldGen:14, manaGen:8  },
