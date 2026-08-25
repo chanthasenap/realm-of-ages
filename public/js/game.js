@@ -147,7 +147,7 @@ async function buildFactionGrid() {
   if (!GD) return;
   grid.innerHTML = Object.entries(GD.FACTIONS).map(([fid, f]) => `
     <div class="faction-strip-card" id="fc-${fid}" data-fid="${fid}">
-      <div class="fsc-art" style="background-image:url('/images/${fid}.jpg')">
+      <div class="fsc-art" style="background-image:url('/images/factions/${fid}.jpg')">
         <div class="fsc-art-vignette"></div>
       </div>
       <div class="fsc-content">
@@ -174,12 +174,12 @@ function selectFaction(fid) {
 
   // Background blur takeover
   const bg = document.getElementById('faction-bg-blur');
-  if (bg) { bg.style.backgroundImage = `url('/images/${fid}.jpg')`; bg.classList.add('active'); }
+  if (bg) { bg.style.backgroundImage = `url('/images/factions/${fid}.jpg')`; bg.classList.add('active'); }
 
   // Artwork panel
   const artEl = document.getElementById('faction-confirm-art');
   if (artEl) {
-    artEl.style.backgroundImage = `url('/images/${fid}.jpg')`;
+    artEl.style.backgroundImage = `url('/images/factions/${fid}.jpg')`;
     artEl.style.borderRight = `2px solid ${f.color}44`;
   }
 
