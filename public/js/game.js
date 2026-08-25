@@ -479,7 +479,7 @@ function startTurnTimer() {
 }
 
 // ── Game actions namespace ─────────────────────────────────────────
-const Game = {
+var Game = window.Game = {
   async showPanel(name) {
     _currentPanel = name;
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
