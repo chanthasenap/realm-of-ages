@@ -35,15 +35,19 @@ export default function Landing() {
     const email = (emailRef.current?.value ?? form.email).trim()
     if (!email.includes('@'))      { setMsg('Enter a valid email address.'); return }
     if (!form.password)            { setMsg('Password required.'); return }
-    const res = await login(email, form.password)
-    if (res.success) {
-      localStorage.setItem(LAST_EMAIL_KEY, email)
-      if (!remember) {
-        window.addEventListener('beforeunload', () => logout(), { once: true })
+    try {
+      const res = await login(email, form.password)
+      if (res.ok) {
+        localStorage.setItem(LAST_EMAIL_KEY, email)
+        if (!remember) {
+          window.addEventListener('beforeunload', () => logout(), { once: true })
+        }
+        nav('/game')
+      } else {
+        setMsg(res.error || 'Login failed.')
       }
-      nav('/game')
-    } else {
-      setMsg(res.message || 'Login failed.')
+    } catch (err) {
+      setMsg(err.message || 'Login failed.')
     }
   }
 
@@ -52,12 +56,16 @@ export default function Landing() {
     const email = (regEmailRef.current?.value ?? form.email).trim()
     if (!email.includes('@'))      { setMsg('Enter a valid email address.'); return }
     if (form.password.length < 8)  { setMsg('Password must be at least 8 characters.'); return }
-    const res = await register(form.name.trim(), email, form.password)
-    if (res.success) {
-      localStorage.setItem(LAST_EMAIL_KEY, email)
-      nav('/faction')
-    } else {
-      setMsg(res.message || 'Registration failed.')
+    try {
+      const res = await register(form.name.trim(), email, form.password)
+      if (res.ok) {
+        localStorage.setItem(LAST_EMAIL_KEY, email)
+        nav('/faction')
+      } else {
+        setMsg(res.error || 'Registration failed.')
+      }
+    } catch (err) {
+      setMsg(err.message || 'Registration failed.')
     }
   }
 

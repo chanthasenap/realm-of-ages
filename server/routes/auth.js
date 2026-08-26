@@ -45,10 +45,13 @@ router.post('/register', async (req, res) => {
     if (existing) return res.status(409).json({ error: 'An account with that email already exists.' });
 
     const hash = await bcrypt.hash(password, 12);
-    const result = await db.run(
-      'INSERT INTO players (name, email, password) VALUES (?, ?, ?)',
-      [name.trim(), email.toLowerCase().trim(), hash]
-    );
+    // Postgres only returns row data with an explicit RETURNING clause — without it,
+    // result.lastID comes back null and the new session never gets a valid playerId.
+    // sql.js (dev) tracks the inserted id itself and ignores RETURNING either way.
+    const insertSql = db._type === 'postgres'
+      ? 'INSERT INTO players (name, email, password) VALUES (?, ?, ?) RETURNING id'
+      : 'INSERT INTO players (name, email, password) VALUES (?, ?, ?)';
+    const result = await db.run(insertSql, [name.trim(), email.toLowerCase().trim(), hash]);
 
     req.session.playerId   = result.lastID;
     req.session.playerName = name.trim();
