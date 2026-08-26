@@ -16,6 +16,7 @@ export default function Landing() {
   const { login, register, logout, loading, player } = useGameStore()
   const nav = useNavigate()
   const emailRef = useRef(null)
+  const regEmailRef = useRef(null)
   const upd = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
   // Auto-redirect if session is still active
@@ -31,11 +32,12 @@ export default function Landing() {
   useEffect(() => { emailRef.current?.focus() }, [tab])
 
   const handleLogin = async () => {
-    if (!form.email.includes('@')) { setMsg('Enter a valid email address.'); return }
+    const email = (emailRef.current?.value ?? form.email).trim()
+    if (!email.includes('@'))      { setMsg('Enter a valid email address.'); return }
     if (!form.password)            { setMsg('Password required.'); return }
-    const res = await login(form.email, form.password)
+    const res = await login(email, form.password)
     if (res.success) {
-      localStorage.setItem(LAST_EMAIL_KEY, form.email)
+      localStorage.setItem(LAST_EMAIL_KEY, email)
       if (!remember) {
         window.addEventListener('beforeunload', () => logout(), { once: true })
       }
@@ -47,11 +49,12 @@ export default function Landing() {
 
   const handleRegister = async () => {
     if (!form.name.trim())         { setMsg('Enter your commander name.'); return }
-    if (!form.email.includes('@')) { setMsg('Enter a valid email address.'); return }
+    const email = (regEmailRef.current?.value ?? form.email).trim()
+    if (!email.includes('@'))      { setMsg('Enter a valid email address.'); return }
     if (form.password.length < 8)  { setMsg('Password must be at least 8 characters.'); return }
-    const res = await register(form.name.trim(), form.email, form.password)
+    const res = await register(form.name.trim(), email, form.password)
     if (res.success) {
-      localStorage.setItem(LAST_EMAIL_KEY, form.email)
+      localStorage.setItem(LAST_EMAIL_KEY, email)
       nav('/faction')
     } else {
       setMsg(res.message || 'Registration failed.')
@@ -110,7 +113,7 @@ export default function Landing() {
             </div>
             <div className={s.fld}>
               <label htmlFor="re">Email Address</label>
-              <input id="re" type="email" value={form.email} onChange={upd('email')} onKeyDown={handleKey}
+              <input id="re" ref={regEmailRef} type="email" value={form.email} onChange={upd('email')} onKeyDown={handleKey}
                 placeholder="your@email.com" autoComplete="email" />
             </div>
             <div className={s.fld}>
