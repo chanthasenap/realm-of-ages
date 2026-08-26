@@ -1885,8 +1885,12 @@ export default function Game() {
       const absIdxMap = new Map(btSorted.map((r, i) => [r._id, i]))
       const myAbsRank = absIdxMap.get(player?._id) ?? -1
       // only include opponents within ±100 ranks — all rows are raidable
+      // Leaderboard filler (isMock) pads out a young world so the board
+      // doesn't look empty, but there's no real account behind it to
+      // attack — the server would just reject the battle. Keep it out
+      // of the actually-raidable list.
       const btEligible = myAbsRank >= 0
-        ? btSorted.filter(r => r._id !== player?._id && Math.abs(absIdxMap.get(r._id) - myAbsRank) <= 100)
+        ? btSorted.filter(r => r._id !== player?._id && !r.isMock && Math.abs(absIdxMap.get(r._id) - myAbsRank) <= 100)
         : []
       const btTotalPages  = Math.ceil(btEligible.length / btPageSize)
       const safeBtPage    = Math.min(btPage, Math.max(0, btTotalPages - 1))
@@ -2324,10 +2328,11 @@ export default function Game() {
                     {!isMe && (
                       <button
                         className={s.rkAttack}
-                        disabled={!canFight || Math.abs(absIdx - myAbsRank) > 100}
+                        disabled={!canFight || r.isMock || Math.abs(absIdx - myAbsRank) > 100}
                         onClick={() => openBattleConfig(r._id)}
                         title={
-                          Math.abs(absIdx - myAbsRank) > 100
+                          r.isMock ? 'This commander has no active army to raid'
+                            : Math.abs(absIdx - myAbsRank) > 100
                             ? 'Only players within ±100 ranks can be attacked'
                             : !canFight ? 'Need 3 turns and power to attack'
                             : `Attack ${r.name}`

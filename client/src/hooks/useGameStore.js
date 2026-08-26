@@ -16,8 +16,16 @@ const MOCK_PLAYERS = Array.from({length:500},(_,i)=>{
   const faction=_FACS[Math.floor(r()*_FACS.length)]
   const tier=r()
   const power=tier<0.6?Math.floor(100+r()*2900):tier<0.9?Math.floor(3000+r()*12000):Math.floor(15000+r()*35000)
-  return {_id:`mp${i}`,name:`${_FIRST[Math.floor(r()*_FIRST.length)]} ${_LAST[Math.floor(r()*_LAST.length)]}`,faction,power}
+  return {_id:`mp${i}`,name:`${_FIRST[Math.floor(r()*_FIRST.length)]} ${_LAST[Math.floor(r()*_LAST.length)]}`,faction,power,isMock:true}
 })
+
+// Real players come back from the server with a SQL `id`, but the mock
+// leaderboard filler (and every rankings/battle comparison in Game.jsx)
+// keys off `_id` — normalize once here so the rest of the app never has
+// to care which kind of player object it's looking at.
+function normalizePlayer(p) {
+  return p ? { ...p, _id: p.id ?? p._id } : p
+}
 
 export const useGameStore = create(
   persist(
@@ -28,18 +36,18 @@ export const useGameStore = create(
 
       login: async (email, password) => {
         const res = await api.login(email, password)
-        set({ player: res.player || res })
+        set({ player: normalizePlayer(res.player || res) })
         await get().fetchGameState()
         return res
       },
       register: async (name, email, password) => {
         const res = await api.register(name, email, password)
-        set({ player: res.player || res })
+        set({ player: normalizePlayer(res.player || res) })
         return res
       },
       logout: async () => { await api.logout().catch(()=>{}); set({ player: null, gameState: null }) },
       fetchPlayer: async () => {
-        try { const res=await api.me(); if(res.ok) set({player:res.player||res}); return res } catch { return {ok:false} }
+        try { const res=await api.me(); if(res.ok) set({player:normalizePlayer(res.player||res)}); return res } catch { return {ok:false} }
       },
       setFaction: async (faction) => {
         const res = await api.setFaction(faction)
@@ -80,9 +88,11 @@ export const useGameStore = create(
 
       fetchRankings: async () => {
         try {
-          const data = await api.rankings()
-          const real = data.map(p=>({...p,_id:p._id||p.id}))
-          return [...real, ...MOCK_PLAYERS.filter(m=>!real.find(r=>r._id===m._id))]
+          const res = await api.rankings()
+          // api.rankings() resolves the whole {ok, rankings, myId} envelope —
+          // the player rows live under res.rankings, not on the envelope itself.
+          const real = (res.rankings || []).map(p => ({ ...p, _id: p.id }))
+          return [...real, ...MOCK_PLAYERS.filter(m => !real.find(r => r._id === m._id))]
         } catch { return MOCK_PLAYERS }
       },
 
