@@ -62,7 +62,27 @@ function startJobs() {
     }
   });
 
-  console.log('⏱  Background jobs started (turn regen every 2 min, economy tick every 1 min)');
+  // ── Bot growth: gradually raise AI opponent power toward their cap ──
+  // Once a day, each bot's power creeps a little closer to the ceiling
+  // it was seeded with (see seedBots.js) — mimicking a player slowly
+  // building up their empire, without ever overshooting into an
+  // unbeatable outlier. Real players (bot_power_cap IS NULL) are
+  // untouched by this job.
+  cron.schedule('0 6 * * *', async () => {
+    try {
+      const clampFn = db._type === 'postgres' ? 'LEAST' : 'MIN';
+      await db.run(
+        `UPDATE players
+           SET power = ${clampFn}(power + CAST(bot_power_cap * 0.02 AS INTEGER), bot_power_cap)
+         WHERE is_bot = ? AND bot_power_cap IS NOT NULL AND power < bot_power_cap`,
+        [true]
+      );
+    } catch (err) {
+      console.error('[Jobs] Bot growth error:', err.message);
+    }
+  });
+
+  console.log('⏱  Background jobs started (turn regen every 2 min, economy tick every 1 min, bot growth daily)');
 }
 
 module.exports = { startJobs };

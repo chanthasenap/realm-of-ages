@@ -21,6 +21,8 @@ async function runMigrations() {
     `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_reward_claimed BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_just_broke BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_just_shielded BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS bot_power_cap INTEGER`,
   ];
 
   for (const stmt of statements) {

@@ -28,6 +28,8 @@ const schema = `
     streak_reward_claimed BOOLEAN DEFAULT FALSE,
     streak_just_broke     BOOLEAN DEFAULT FALSE,
     streak_just_shielded  BOOLEAN DEFAULT FALSE,
+    is_bot       BOOLEAN DEFAULT FALSE,
+    bot_power_cap INTEGER,
     created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login   DATETIME DEFAULT CURRENT_TIMESTAMP
   );

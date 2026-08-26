@@ -16,6 +16,7 @@ const authRoutes  = require('./routes/auth');
 const gameRoutes  = require('./routes/game');
 const { startJobs } = require('./jobs');
 const { runMigrations } = require('./migrate');
+const { seedBots } = require('./seedBots');
 
 const app    = express();
 const PORT   = process.env.PORT || 3000;
@@ -116,12 +117,14 @@ app.get('*', (req, res) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────
-runMigrations().finally(() => {
-  app.listen(PORT, () => {
-    console.log(`\n🏰  Realm of Ages → http://localhost:${PORT}`);
-    console.log(`    Mode: ${isProd ? 'PRODUCTION' : 'development'}\n`);
-    startJobs();
+runMigrations()
+  .then(() => seedBots())
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`\n🏰  Realm of Ages → http://localhost:${PORT}`);
+      console.log(`    Mode: ${isProd ? 'PRODUCTION' : 'development'}\n`);
+      startJobs();
+    });
   });
-});
 
 module.exports = app;

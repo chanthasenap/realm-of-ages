@@ -92,7 +92,12 @@ export const useGameStore = create(
           // api.rankings() resolves the whole {ok, rankings, myId} envelope —
           // the player rows live under res.rankings, not on the envelope itself.
           const real = (res.rankings || []).map(p => ({ ...p, _id: p.id }))
-          return [...real, ...MOCK_PLAYERS.filter(m => !real.find(r => r._id === m._id))]
+          // The server now seeds a baseline of real (attackable) AI-run
+          // accounts alongside genuine signups, so the rankings list is
+          // always populated without needing client-side filler on top —
+          // MOCK_PLAYERS is kept only as an offline/network-failure fallback
+          // below, not merged into a normal successful response.
+          return real
         } catch { return MOCK_PLAYERS }
       },
 
