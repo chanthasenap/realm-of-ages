@@ -9,15 +9,20 @@ import s from './FactionSelect.module.css'
 export default function FactionSelect() {
   const [selected, setSelected] = useState(null)
   const [loading, setLoading]   = useState(false)
-  const { selectFaction } = useGameStore()
+  const { setFaction } = useGameStore()
   const nav = useNavigate()
 
   const proceed = async () => {
     if (!selected) return
     setLoading(true)
-    const res = await selectFaction(selected)
-    if (res.success) nav('/game')
-    else { alert(res.message); setLoading(false) }
+    try {
+      const res = await setFaction(selected)
+      if (res.ok) nav('/game')
+      else { alert(res.error || 'Could not set faction.'); setLoading(false) }
+    } catch (err) {
+      alert(err.message || 'Could not set faction.')
+      setLoading(false)
+    }
   }
 
   return (
