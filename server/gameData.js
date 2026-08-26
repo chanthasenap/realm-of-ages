@@ -1,100 +1,1207 @@
 /**
  * server/gameData.js
  * Single source of truth for all game constants.
- * Used by both the server (validation, calculations) and served to the client.
+ * Generated from client/src/data/factions.js so faction/building/unit ids,
+ * costs, and upkeep stay in sync between client display and server validation.
+ * Regenerate by re-running the transform if client/src/data/factions.js changes.
  */
 
 const FACTIONS = {
-  undead: {
-    name: 'Vorath Dominion', icon: 'ti-skull', color: '#c878e8',
-    epithet: 'The Undying Empire', lore: 'When the Great Plague swept their lands, archmage Mordikael struck a covenant with the void: eternal existence for eternal servitude. Vethras Prime became the first city of the dead — its citizens not mindless shambling corpses, but sentient undead, memories intact, loyalty absolute.', goldBonus: 0, manaBonus: 0.15,
-    buildings: [
-      { id:'crypt',       name:'Bone Crypt',         icon:'ti-building',          goldCost:80,   manaCost:20,  turns:2,  goldGen:8,  manaGen:5  },
-      { id:'plagupit',    name:'Plague Pit',          icon:'ti-biohazard',         goldCost:120,  manaCost:35,  turns:3,  goldGen:12, manaGen:8  },
-      { id:'wraithspire', name:'Wraith Spire',        icon:'ti-tower',             goldCost:200,  manaCost:60,  turns:4,  goldGen:10, manaGen:18 },
-      { id:'dragonlair',  name:'Death Dragon Lair',   icon:'ti-dragon',            goldCost:500,  manaCost:150, turns:8,  goldGen:20, manaGen:25 },
-      { id:'lichcitadel', name:'Lich Citadel',        icon:'ti-castle',            goldCost:1000, manaCost:300, turns:12, goldGen:40, manaGen:50 },
+  "undead": {
+    "name": "The Dread Legion",
+    "icon": "ti-skull",
+    "color": "#c878e8",
+    "epithet": "Lords of the Unliving",
+    "goldBonus": 0.1,
+    "manaBonus": 0.25,
+    "buildings": [
+      {
+        "id": "skeleton_hall",
+        "name": "Bone Ossuary",
+        "icon": "ti-shield",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "zombie_hall",
+        "name": "Plague Pit",
+        "icon": "ti-sword",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "ghoul_hall",
+        "name": "Feeding Den",
+        "icon": "ti-paw",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "wight_hall",
+        "name": "Cursed Barrow",
+        "icon": "ti-shield",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "shadow_hall",
+        "name": "Shadow Rift",
+        "icon": "ti-eye-off",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "specter_hall",
+        "name": "Haunting Chamber",
+        "icon": "ti-ghost",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "vampire_spawn_hall",
+        "name": "Blood Crypt",
+        "icon": "ti-eye-off",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "death_knight_hall",
+        "name": "Dark Armory",
+        "icon": "ti-shield-check",
+        "goldCost": 12000,
+        "manaCost": 3200,
+        "turns": 35,
+        "goldGen": 14,
+        "manaGen": 6
+      },
+      {
+        "id": "lich_hall",
+        "name": "Phylactery Vault",
+        "icon": "ti-sparkles",
+        "goldCost": 28000,
+        "manaCost": 8000,
+        "turns": 55,
+        "goldGen": 22,
+        "manaGen": 10
+      },
+      {
+        "id": "ossuary",
+        "name": "Ossuary Vault",
+        "icon": "ti-coin",
+        "goldCost": 155,
+        "manaCost": 15,
+        "turns": 2,
+        "goldGen": 15,
+        "manaGen": 0
+      },
+      {
+        "id": "phylactery",
+        "name": "Lich's Phylactery",
+        "icon": "ti-sparkles",
+        "goldCost": 140,
+        "manaCost": 35,
+        "turns": 3,
+        "goldGen": 0,
+        "manaGen": 8
+      }
     ],
-    units: [
-      { id:'skeleton',    name:'Skeleton Warrior', icon:'ti-skull',       atk:4,  def:2,  power:3,   goldCost:15,  manaCost:2,   goldUpkeep:1,   manaUpkeep:0.3,  req:'crypt'       },
-      { id:'zombie',      name:'Plague Zombie',    icon:'ti-user-x',      atk:6,  def:1,  power:4,   goldCost:20,  manaCost:3,   goldUpkeep:1.5, manaUpkeep:0.5,  req:'plagupit'    },
-      { id:'wraith',      name:'Wraith',           icon:'ti-ghost-2',     atk:10, def:5,  power:10,  goldCost:60,  manaCost:20,  goldUpkeep:4,   manaUpkeep:2,    req:'wraithspire' },
-      { id:'deathdragon', name:'Death Dragon',     icon:'ti-dragon',      atk:40, def:20, power:60,  goldCost:300, manaCost:100, goldUpkeep:20,  manaUpkeep:10,   req:'dragonlair'  },
-      { id:'lichlord',    name:'Lich Lord',        icon:'ti-wand',        atk:30, def:15, power:50,  goldCost:250, manaCost:80,  goldUpkeep:15,  manaUpkeep:8,    req:'lichcitadel' },
-    ],
+    "units": [
+      {
+        "id": "skeleton",
+        "name": "Skeleton",
+        "icon": "ti-sword",
+        "atk": 7,
+        "def": 5,
+        "power": 20,
+        "goldCost": 25,
+        "manaCost": 8,
+        "goldUpkeep": 0.6,
+        "manaUpkeep": 0.1,
+        "req": "skeleton_hall"
+      },
+      {
+        "id": "zombie",
+        "name": "Zombie",
+        "icon": "ti-sword",
+        "atk": 8,
+        "def": 10,
+        "power": 21,
+        "goldCost": 30,
+        "manaCost": 10,
+        "goldUpkeep": 0.8,
+        "manaUpkeep": 0.1,
+        "req": "zombie_hall"
+      },
+      {
+        "id": "ghoul",
+        "name": "Ghoul",
+        "icon": "ti-sword",
+        "atk": 10,
+        "def": 8,
+        "power": 26,
+        "goldCost": 35,
+        "manaCost": 12,
+        "goldUpkeep": 1,
+        "manaUpkeep": 0.2,
+        "req": "ghoul_hall"
+      },
+      {
+        "id": "wight",
+        "name": "Wight",
+        "icon": "ti-sword",
+        "atk": 13,
+        "def": 9,
+        "power": 30,
+        "goldCost": 85,
+        "manaCost": 40,
+        "goldUpkeep": 1.5,
+        "manaUpkeep": 0.4,
+        "req": "wight_hall"
+      },
+      {
+        "id": "shadow",
+        "name": "Shadow",
+        "icon": "ti-sword",
+        "atk": 13,
+        "def": 9,
+        "power": 38,
+        "goldCost": 110,
+        "manaCost": 55,
+        "goldUpkeep": 2.5,
+        "manaUpkeep": 1.2,
+        "req": "shadow_hall"
+      },
+      {
+        "id": "specter",
+        "name": "Specter",
+        "icon": "ti-sword",
+        "atk": 13,
+        "def": 9,
+        "power": 38,
+        "goldCost": 500,
+        "manaCost": 240,
+        "goldUpkeep": 4,
+        "manaUpkeep": 2.5,
+        "req": "specter_hall"
+      },
+      {
+        "id": "vampire_spawn",
+        "name": "Vampire Spawn",
+        "icon": "ti-sword",
+        "atk": 20,
+        "def": 15,
+        "power": 52,
+        "goldCost": 720,
+        "manaCost": 360,
+        "goldUpkeep": 5.5,
+        "manaUpkeep": 3,
+        "req": "vampire_spawn_hall"
+      },
+      {
+        "id": "death_knight",
+        "name": "Death Knight",
+        "icon": "ti-sword",
+        "atk": 26,
+        "def": 21,
+        "power": 56,
+        "goldCost": 1800,
+        "manaCost": 900,
+        "goldUpkeep": 9,
+        "manaUpkeep": 4.5,
+        "req": "death_knight_hall"
+      },
+      {
+        "id": "lich",
+        "name": "Lich",
+        "icon": "ti-sword",
+        "atk": 28,
+        "def": 14,
+        "power": 68,
+        "goldCost": 6400,
+        "manaCost": 3240,
+        "goldUpkeep": 24,
+        "manaUpkeep": 14,
+        "req": "lich_hall"
+      }
+    ]
   },
-  nature: {
-    name: 'Sylvaran Accord', icon: 'ti-leaf', color: '#78d848',
-    epithet: 'The Living Covenant', lore: 'For ten thousand years the Sylvaran have guarded nature\'s balance. Their cities grow within living trees, their armies rise from the forest itself. The Accord was first spoken by druid-queen Sylvara Aethon — a covenant between elves, treants, and ancient spirits that has never been broken.', goldBonus: 0.1, manaBonus: 0.2,
-    buildings: [
-      { id:'grove',      name:'Ancient Grove',    icon:'ti-trees',             goldCost:80,  manaCost:20,  turns:2,  goldGen:10, manaGen:6  },
-      { id:'heartwood',  name:'Heartwood Hall',   icon:'ti-tree',              goldCost:150, manaCost:40,  turns:3,  goldGen:14, manaGen:10 },
-      { id:'moonshrine', name:'Moon Shrine',      icon:'ti-moon',              goldCost:200, manaCost:60,  turns:4,  goldGen:12, manaGen:22 },
-      { id:'dragonroost',name:'Dragon Roost',     icon:'ti-feather',           goldCost:400, manaCost:120, turns:7,  goldGen:18, manaGen:20 },
-      { id:'worldtree',  name:'World Tree Nexus', icon:'ti-plant',             goldCost:900, manaCost:280, turns:12, goldGen:35, manaGen:45 },
+  "nature": {
+    "name": "The Verdant Circle",
+    "icon": "ti-leaf",
+    "color": "#78d848",
+    "epithet": "Wardens of the Living World",
+    "goldBonus": 0.2,
+    "manaBonus": 0.15,
+    "buildings": [
+      {
+        "id": "dire_wolf_hall",
+        "name": "Wolf Den",
+        "icon": "ti-paw",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "giant_spider_hall",
+        "name": "Webbed Hollow",
+        "icon": "ti-paw",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "dryad_hall",
+        "name": "Spirit Oak",
+        "icon": "ti-sparkles",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "owlbear_hall",
+        "name": "Owlbear Lair",
+        "icon": "ti-paw",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "werewolf_hall",
+        "name": "Moon Shrine",
+        "icon": "ti-paw",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "green_hag_hall",
+        "name": "Witch's Bog",
+        "icon": "ti-sparkles",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "treant_hall",
+        "name": "Elder Grove",
+        "icon": "ti-sword",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "shambling_mound_hall",
+        "name": "Fetid Marsh",
+        "icon": "ti-sword",
+        "goldCost": 12000,
+        "manaCost": 3200,
+        "turns": 35,
+        "goldGen": 14,
+        "manaGen": 6
+      },
+      {
+        "id": "ancient_treant_hall",
+        "name": "World Root",
+        "icon": "ti-flame",
+        "goldCost": 28000,
+        "manaCost": 8000,
+        "turns": 55,
+        "goldGen": 22,
+        "manaGen": 10
+      },
+      {
+        "id": "herbarium",
+        "name": "Druidic Herbarium",
+        "icon": "ti-coin",
+        "goldCost": 155,
+        "manaCost": 15,
+        "turns": 2,
+        "goldGen": 15,
+        "manaGen": 0
+      },
+      {
+        "id": "ley_stone",
+        "name": "Ley Stone Circle",
+        "icon": "ti-sparkles",
+        "goldCost": 140,
+        "manaCost": 35,
+        "turns": 3,
+        "goldGen": 0,
+        "manaGen": 8
+      }
     ],
-    units: [
-      { id:'archer',       name:'Sylvan Archer',   icon:'ti-bow-arrow',   atk:5,  def:3,  power:4,   goldCost:18,  manaCost:2,   goldUpkeep:1.2, manaUpkeep:0.3,  req:'grove'      },
-      { id:'treant',       name:'Treant',          icon:'ti-tree',        atk:8,  def:14, power:12,  goldCost:80,  manaCost:15,  goldUpkeep:5,   manaUpkeep:2,    req:'heartwood'  },
-      { id:'moondruid',    name:'Moon Druid',      icon:'ti-moon-stars',  atk:12, def:6,  power:14,  goldCost:90,  manaCost:25,  goldUpkeep:6,   manaUpkeep:3,    req:'moonshrine' },
-      { id:'fairydragon',  name:'Fairy Dragon',    icon:'ti-butterfly',   atk:20, def:10, power:30,  goldCost:200, manaCost:60,  goldUpkeep:12,  manaUpkeep:7,    req:'dragonroost'},
-      { id:'earthelemental',name:'Earth Elemental',icon:'ti-mountain',    atk:16, def:22, power:28,  goldCost:180, manaCost:55,  goldUpkeep:10,  manaUpkeep:6,    req:'worldtree'  },
-    ],
+    "units": [
+      {
+        "id": "dire_wolf",
+        "name": "Dire Wolf",
+        "icon": "ti-sword",
+        "atk": 9,
+        "def": 9,
+        "power": 28,
+        "goldCost": 22,
+        "manaCost": 7,
+        "goldUpkeep": 0.6,
+        "manaUpkeep": 0.1,
+        "req": "dire_wolf_hall"
+      },
+      {
+        "id": "giant_spider",
+        "name": "Giant Spider",
+        "icon": "ti-sword",
+        "atk": 8,
+        "def": 7,
+        "power": 25,
+        "goldCost": 26,
+        "manaCost": 9,
+        "goldUpkeep": 0.7,
+        "manaUpkeep": 0.1,
+        "req": "giant_spider_hall"
+      },
+      {
+        "id": "dryad",
+        "name": "Dryad",
+        "icon": "ti-sword",
+        "atk": 9,
+        "def": 7,
+        "power": 27,
+        "goldCost": 30,
+        "manaCost": 10,
+        "goldUpkeep": 0.6,
+        "manaUpkeep": 0.3,
+        "req": "dryad_hall"
+      },
+      {
+        "id": "owlbear",
+        "name": "Owlbear",
+        "icon": "ti-sword",
+        "atk": 15,
+        "def": 14,
+        "power": 37,
+        "goldCost": 85,
+        "manaCost": 38,
+        "goldUpkeep": 1.8,
+        "manaUpkeep": 0.4,
+        "req": "owlbear_hall"
+      },
+      {
+        "id": "werewolf",
+        "name": "Werewolf",
+        "icon": "ti-sword",
+        "atk": 17,
+        "def": 13,
+        "power": 42,
+        "goldCost": 110,
+        "manaCost": 50,
+        "goldUpkeep": 2.2,
+        "manaUpkeep": 0.6,
+        "req": "werewolf_hall"
+      },
+      {
+        "id": "green_hag",
+        "name": "Green Hag",
+        "icon": "ti-sword",
+        "atk": 20,
+        "def": 14,
+        "power": 50,
+        "goldCost": 520,
+        "manaCost": 240,
+        "goldUpkeep": 4,
+        "manaUpkeep": 2.5,
+        "req": "green_hag_hall"
+      },
+      {
+        "id": "treant",
+        "name": "Treant",
+        "icon": "ti-sword",
+        "atk": 32,
+        "def": 31,
+        "power": 70,
+        "goldCost": 760,
+        "manaCost": 384,
+        "goldUpkeep": 5.5,
+        "manaUpkeep": 3,
+        "req": "treant_hall"
+      },
+      {
+        "id": "shambling_mound",
+        "name": "Shambling Mound",
+        "icon": "ti-sword",
+        "atk": 23,
+        "def": 23,
+        "power": 54,
+        "goldCost": 1920,
+        "manaCost": 936,
+        "goldUpkeep": 12,
+        "manaUpkeep": 5,
+        "req": "shambling_mound_hall"
+      },
+      {
+        "id": "ancient_treant",
+        "name": "Ancient Treant",
+        "icon": "ti-sword",
+        "atk": 59,
+        "def": 49,
+        "power": 122,
+        "goldCost": 6200,
+        "manaCost": 3100,
+        "goldUpkeep": 22,
+        "manaUpkeep": 12,
+        "req": "ancient_treant_hall"
+      }
+    ]
   },
-  water: {
-    name: 'Thalassian Depths', icon: 'ti-droplet', color: '#78b8e8',
-    epithet: 'Sovereigns of the Deep', lore: 'Below the waves, time moves differently. The Abyssal Court has deliberated policy for three thousand years in a single session. When a coastal kingdom once tried to drain the Thalassian Shallows, three cities vanished beneath tidal waves overnight. The sea does not negotiate.', goldBonus: 0.05, manaBonus: 0.25,
-    buildings: [
-      { id:'tidalpool',    name:'Tidal Pool Barracks', icon:'ti-waves',    goldCost:80,  manaCost:20,  turns:2,  goldGen:9,  manaGen:8  },
-      { id:'coralfort',    name:'Coral Fortress',      icon:'ti-shield',   goldCost:130, manaCost:40,  turns:3,  goldGen:13, manaGen:12 },
-      { id:'stormspire',   name:'Storm Spire',         icon:'ti-storm',    goldCost:220, manaCost:65,  turns:4,  goldGen:11, manaGen:25 },
-      { id:'krakenpit',    name:'Kraken Pit',          icon:'ti-anchor',   goldCost:450, manaCost:130, turns:7,  goldGen:22, manaGen:22 },
-      { id:'abyssalcourt', name:'Abyssal Court',       icon:'ti-crown',    goldCost:950, manaCost:290, turns:12, goldGen:38, manaGen:55 },
+  "tide": {
+    "name": "The Tidal Dominion",
+    "icon": "ti-droplet",
+    "color": "#78b8e8",
+    "epithet": "Masters of the Abyssal Deep",
+    "goldBonus": 0.15,
+    "manaBonus": 0.2,
+    "buildings": [
+      {
+        "id": "merfolk_hall",
+        "name": "Reef Hall",
+        "icon": "ti-shield",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "sahuagin_hall",
+        "name": "Blood Reef",
+        "icon": "ti-shield",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "sea_spawn_hall",
+        "name": "Tidal Grotto",
+        "icon": "ti-sword",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "merrow_hall",
+        "name": "Deepwater Den",
+        "icon": "ti-shield",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "water_elemental_hall",
+        "name": "Tempest Font",
+        "icon": "ti-ghost",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "aboleth_hall",
+        "name": "Aboleth Lair",
+        "icon": "ti-sparkles",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "kraken_spawn_hall",
+        "name": "Kraken Pit",
+        "icon": "ti-paw",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "marid_hall",
+        "name": "Marid Cistern",
+        "icon": "ti-sparkles",
+        "goldCost": 12000,
+        "manaCost": 3200,
+        "turns": 35,
+        "goldGen": 14,
+        "manaGen": 6
+      },
+      {
+        "id": "storm_giant_hall",
+        "name": "Storm Spire",
+        "icon": "ti-flame",
+        "goldCost": 28000,
+        "manaCost": 8000,
+        "turns": 55,
+        "goldGen": 22,
+        "manaGen": 10
+      },
+      {
+        "id": "coral_market",
+        "name": "Coral Market",
+        "icon": "ti-coin",
+        "goldCost": 155,
+        "manaCost": 15,
+        "turns": 2,
+        "goldGen": 15,
+        "manaGen": 0
+      },
+      {
+        "id": "maelstrom",
+        "name": "Maelstrom Pool",
+        "icon": "ti-sparkles",
+        "goldCost": 140,
+        "manaCost": 35,
+        "turns": 3,
+        "goldGen": 0,
+        "manaGen": 8
+      }
     ],
-    units: [
-      { id:'sprite',    name:'Water Sprite',    icon:'ti-droplet',      atk:4,  def:4,  power:4,   goldCost:16,  manaCost:3,   goldUpkeep:1,   manaUpkeep:0.5,  req:'tidalpool'   },
-      { id:'merfolk',   name:'Merfolk Guard',   icon:'ti-user-shield',  atk:7,  def:9,  power:9,   goldCost:55,  manaCost:14,  goldUpkeep:4,   manaUpkeep:2,    req:'coralfort'   },
-      { id:'tidelord',  name:'Tidal Elemental', icon:'ti-waves',        atk:15, def:8,  power:16,  goldCost:100, manaCost:30,  goldUpkeep:7,   manaUpkeep:4,    req:'stormspire'  },
-      { id:'kraken',    name:'Kraken',          icon:'ti-octahedron',   atk:28, def:14, power:35,  goldCost:220, manaCost:65,  goldUpkeep:14,  manaUpkeep:8,    req:'krakenpit'   },
-      { id:'leviathan', name:'Deep Leviathan',  icon:'ti-anchor',       atk:50, def:30, power:80,  goldCost:400, manaCost:120, goldUpkeep:25,  manaUpkeep:14,   req:'abyssalcourt'},
-    ],
+    "units": [
+      {
+        "id": "merfolk",
+        "name": "Merfolk Warrior",
+        "icon": "ti-sword",
+        "atk": 10,
+        "def": 7,
+        "power": 27,
+        "goldCost": 25,
+        "manaCost": 10,
+        "goldUpkeep": 0.6,
+        "manaUpkeep": 0.2,
+        "req": "merfolk_hall"
+      },
+      {
+        "id": "sahuagin",
+        "name": "Sahuagin",
+        "icon": "ti-sword",
+        "atk": 10,
+        "def": 9,
+        "power": 27,
+        "goldCost": 30,
+        "manaCost": 10,
+        "goldUpkeep": 0.8,
+        "manaUpkeep": 0.2,
+        "req": "sahuagin_hall"
+      },
+      {
+        "id": "sea_spawn",
+        "name": "Sea Spawn",
+        "icon": "ti-sword",
+        "atk": 8,
+        "def": 9,
+        "power": 24,
+        "goldCost": 32,
+        "manaCost": 12,
+        "goldUpkeep": 0.9,
+        "manaUpkeep": 0.2,
+        "req": "sea_spawn_hall"
+      },
+      {
+        "id": "merrow",
+        "name": "Merrow",
+        "icon": "ti-sword",
+        "atk": 15,
+        "def": 12,
+        "power": 36,
+        "goldCost": 85,
+        "manaCost": 38,
+        "goldUpkeep": 1.6,
+        "manaUpkeep": 0.5,
+        "req": "merrow_hall"
+      },
+      {
+        "id": "water_elemental",
+        "name": "Water Elemental",
+        "icon": "ti-sword",
+        "atk": 17,
+        "def": 16,
+        "power": 46,
+        "goldCost": 115,
+        "manaCost": 55,
+        "goldUpkeep": 2.5,
+        "manaUpkeep": 1,
+        "req": "water_elemental_hall"
+      },
+      {
+        "id": "aboleth",
+        "name": "Aboleth",
+        "icon": "ti-sword",
+        "atk": 24,
+        "def": 15,
+        "power": 58,
+        "goldCost": 540,
+        "manaCost": 270,
+        "goldUpkeep": 4.5,
+        "manaUpkeep": 3,
+        "req": "aboleth_hall"
+      },
+      {
+        "id": "kraken_spawn",
+        "name": "Kraken Spawn",
+        "icon": "ti-sword",
+        "atk": 33,
+        "def": 28,
+        "power": 74,
+        "goldCost": 780,
+        "manaCost": 400,
+        "goldUpkeep": 6,
+        "manaUpkeep": 3.5,
+        "req": "kraken_spawn_hall"
+      },
+      {
+        "id": "marid",
+        "name": "Marid",
+        "icon": "ti-sword",
+        "atk": 27,
+        "def": 21,
+        "power": 70,
+        "goldCost": 2000,
+        "manaCost": 1020,
+        "goldUpkeep": 12,
+        "manaUpkeep": 7,
+        "req": "marid_hall"
+      },
+      {
+        "id": "storm_giant",
+        "name": "Storm Giant",
+        "icon": "ti-sword",
+        "atk": 60,
+        "def": 46,
+        "power": 128,
+        "goldCost": 6500,
+        "manaCost": 3300,
+        "goldUpkeep": 25,
+        "manaUpkeep": 14,
+        "req": "storm_giant_hall"
+      }
+    ]
   },
-  fire: {
-    name: 'Emberpeak Horde', icon: 'ti-flame', color: '#e87848',
-    epithet: 'The Unbroken War-Tide', lore: 'Forged in the belly of the Emberpeak Caldera, the Horde knows only two truths: fire purifies, and war decides. Red Dragons have entered a mutually beneficial arrangement — the Horde points them at targets worth destroying, and the dragons get to destroy things, which they enjoy.', goldBonus: 0.2, manaBonus: 0,
-    buildings: [
-      { id:'warcamp',   name:'War Camp',         icon:'ti-campfire',  goldCost:70,   manaCost:10,  turns:2,  goldGen:12, manaGen:3  },
-      { id:'forge',     name:'Volcanic Forge',   icon:'ti-hammer',    goldCost:140,  manaCost:30,  turns:3,  goldGen:18, manaGen:6  },
-      { id:'firetemple',name:'Fire Temple',      icon:'ti-flame',     goldCost:200,  manaCost:50,  turns:4,  goldGen:15, manaGen:15 },
-      { id:'dragonpit', name:'Red Dragon Pit',   icon:'ti-dragon',    goldCost:500,  manaCost:140, turns:8,  goldGen:28, manaGen:18 },
-      { id:'caldera',   name:'Caldera Citadel',  icon:'ti-mountain',  goldCost:1000, manaCost:250, turns:12, goldGen:50, manaGen:30 },
+  "flame": {
+    "name": "The Ember Throne",
+    "icon": "ti-flame",
+    "color": "#e87848",
+    "epithet": "Conquerors of the Ashen Plains",
+    "goldBonus": 0.25,
+    "manaBonus": 0.1,
+    "buildings": [
+      {
+        "id": "magmin_hall",
+        "name": "Ember Pit",
+        "icon": "ti-sword",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "hobgoblin_hall",
+        "name": "War Camp",
+        "icon": "ti-shield",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "hell_hound_hall",
+        "name": "Kennel Pits",
+        "icon": "ti-paw",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "salamander_hall",
+        "name": "Flame Barracks",
+        "icon": "ti-shield",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "azer_hall",
+        "name": "Azer Foundry",
+        "icon": "ti-shield",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "fire_elemental_hall",
+        "name": "Inferno Gate",
+        "icon": "ti-ghost",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "efreeti_hall",
+        "name": "Brass Portal",
+        "icon": "ti-sparkles",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "fire_giant_hall",
+        "name": "Giant's Hearth",
+        "icon": "ti-sword",
+        "goldCost": 12000,
+        "manaCost": 3200,
+        "turns": 35,
+        "goldGen": 14,
+        "manaGen": 6
+      },
+      {
+        "id": "red_dragon_hall",
+        "name": "Dragon Roost",
+        "icon": "ti-flame",
+        "goldCost": 28000,
+        "manaCost": 8000,
+        "turns": 55,
+        "goldGen": 22,
+        "manaGen": 10
+      },
+      {
+        "id": "dwarf_foundry",
+        "name": "Dwarven Gold Foundry",
+        "icon": "ti-coin",
+        "goldCost": 155,
+        "manaCost": 15,
+        "turns": 2,
+        "goldGen": 15,
+        "manaGen": 0
+      },
+      {
+        "id": "brass_vent",
+        "name": "City of Brass Vent",
+        "icon": "ti-sparkles",
+        "goldCost": 140,
+        "manaCost": 35,
+        "turns": 3,
+        "goldGen": 0,
+        "manaGen": 8
+      }
     ],
-    units: [
-      { id:'goblin',       name:'War Goblin',     icon:'ti-axe',      atk:5,  def:2,  power:3,   goldCost:12,  manaCost:1,   goldUpkeep:0.8, manaUpkeep:0.1,  req:'warcamp'   },
-      { id:'marauder',     name:'Raid Marauder',  icon:'ti-swords',   atk:9,  def:5,  power:8,   goldCost:50,  manaCost:10,  goldUpkeep:3.5, manaUpkeep:1,    req:'forge'     },
-      { id:'fireelemental',name:'Fire Elemental', icon:'ti-flame',    atk:14, def:4,  power:14,  goldCost:85,  manaCost:25,  goldUpkeep:6,   manaUpkeep:3,    req:'firetemple'},
-      { id:'reddragon',    name:'Red Dragon',     icon:'ti-dragon',   atk:42, def:18, power:60,  goldCost:320, manaCost:90,  goldUpkeep:22,  manaUpkeep:9,    req:'dragonpit' },
-      { id:'magmagiant',   name:'Magma Giant',    icon:'ti-mountain', atk:22, def:26, power:38,  goldCost:240, manaCost:70,  goldUpkeep:14,  manaUpkeep:6,    req:'caldera'   },
-    ],
+    "units": [
+      {
+        "id": "magmin",
+        "name": "Magmin",
+        "icon": "ti-sword",
+        "atk": 9,
+        "def": 9,
+        "power": 25,
+        "goldCost": 26,
+        "manaCost": 8,
+        "goldUpkeep": 0.7,
+        "manaUpkeep": 0.1,
+        "req": "magmin_hall"
+      },
+      {
+        "id": "hobgoblin",
+        "name": "Hobgoblin",
+        "icon": "ti-sword",
+        "atk": 10,
+        "def": 8,
+        "power": 26,
+        "goldCost": 30,
+        "manaCost": 10,
+        "goldUpkeep": 0.8,
+        "manaUpkeep": 0.1,
+        "req": "hobgoblin_hall"
+      },
+      {
+        "id": "hell_hound",
+        "name": "Hell Hound",
+        "icon": "ti-sword",
+        "atk": 12,
+        "def": 11,
+        "power": 34,
+        "goldCost": 36,
+        "manaCost": 12,
+        "goldUpkeep": 1,
+        "manaUpkeep": 0.2,
+        "req": "hell_hound_hall"
+      },
+      {
+        "id": "salamander",
+        "name": "Salamander",
+        "icon": "ti-sword",
+        "atk": 18,
+        "def": 14,
+        "power": 42,
+        "goldCost": 90,
+        "manaCost": 40,
+        "goldUpkeep": 1.8,
+        "manaUpkeep": 0.5,
+        "req": "salamander_hall"
+      },
+      {
+        "id": "azer",
+        "name": "Azer",
+        "icon": "ti-sword",
+        "atk": 15,
+        "def": 12,
+        "power": 36,
+        "goldCost": 110,
+        "manaCost": 48,
+        "goldUpkeep": 2,
+        "manaUpkeep": 0.5,
+        "req": "azer_hall"
+      },
+      {
+        "id": "fire_elemental",
+        "name": "Fire Elemental",
+        "icon": "ti-sword",
+        "atk": 19,
+        "def": 13,
+        "power": 48,
+        "goldCost": 540,
+        "manaCost": 260,
+        "goldUpkeep": 4,
+        "manaUpkeep": 2,
+        "req": "fire_elemental_hall"
+      },
+      {
+        "id": "efreeti",
+        "name": "Efreeti",
+        "icon": "ti-sword",
+        "atk": 32,
+        "def": 19,
+        "power": 74,
+        "goldCost": 860,
+        "manaCost": 450,
+        "goldUpkeep": 7,
+        "manaUpkeep": 4,
+        "req": "efreeti_hall"
+      },
+      {
+        "id": "fire_giant",
+        "name": "Fire Giant",
+        "icon": "ti-sword",
+        "atk": 43,
+        "def": 34,
+        "power": 88,
+        "goldCost": 2060,
+        "manaCost": 1060,
+        "goldUpkeep": 14,
+        "manaUpkeep": 6,
+        "req": "fire_giant_hall"
+      },
+      {
+        "id": "red_dragon",
+        "name": "Adult Red Dragon",
+        "icon": "ti-sword",
+        "atk": 68,
+        "def": 50,
+        "power": 148,
+        "goldCost": 6800,
+        "manaCost": 3400,
+        "goldUpkeep": 30,
+        "manaUpkeep": 15,
+        "req": "red_dragon_hall"
+      }
+    ]
   },
-  holy: {
-    name: 'Celestian Vanguard', icon: 'ti-star', color: '#e8d878',
-    epithet: 'The Divine Shield', lore: 'The First Covenant was signed in light. When darkness pressed in from all sides, twelve mortal champions ascended to the Celestial Plane and returned with a divine mandate: hold the line. The Vanguard has held it for four thousand years. That line has never broken.', goldBonus: 0.1, manaBonus: 0.1,
-    buildings: [
-      { id:'chapel',      name:'Field Chapel',     icon:'ti-building-church',   goldCost:90,   manaCost:25,  turns:2,  goldGen:10, manaGen:10 },
-      { id:'barracks',    name:'Holy Barracks',    icon:'ti-shield',            goldCost:130,  manaCost:35,  turns:3,  goldGen:14, manaGen:8  },
-      { id:'paladinhall', name:'Paladin Hall',     icon:'ti-shield-star',       goldCost:220,  manaCost:65,  turns:4,  goldGen:16, manaGen:20 },
-      { id:'angelspire',  name:'Angel Spire',      icon:'ti-antenna',           goldCost:480,  manaCost:140, turns:8,  goldGen:22, manaGen:30 },
-      { id:'sanctum',     name:'Celestial Sanctum',icon:'ti-crown',             goldCost:1000, manaCost:300, turns:12, goldGen:40, manaGen:50 },
+  "celestial": {
+    "name": "The Starborn Covenant",
+    "icon": "ti-star",
+    "color": "#e8d878",
+    "epithet": "Architects of the Eternal Firmament",
+    "goldBonus": 0.12,
+    "manaBonus": 0.22,
+    "buildings": [
+      {
+        "id": "sprite_hall",
+        "name": "Moonlit Glade",
+        "icon": "ti-target",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "pixie_hall",
+        "name": "Fey Ring",
+        "icon": "ti-sparkles",
+        "goldCost": 200,
+        "manaCost": 55,
+        "turns": 3,
+        "goldGen": 4,
+        "manaGen": 1
+      },
+      {
+        "id": "hippogriff_hall",
+        "name": "Aerie",
+        "icon": "ti-paw",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "pegasus_hall",
+        "name": "Cloud Stable",
+        "icon": "ti-paw",
+        "goldCost": 900,
+        "manaCost": 280,
+        "turns": 8,
+        "goldGen": 6,
+        "manaGen": 2
+      },
+      {
+        "id": "couatl_hall",
+        "name": "Sacred Pool",
+        "icon": "ti-sparkles",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "deva_hall",
+        "name": "Prayer Hall",
+        "icon": "ti-shield",
+        "goldCost": 5000,
+        "manaCost": 1400,
+        "turns": 20,
+        "goldGen": 9,
+        "manaGen": 4
+      },
+      {
+        "id": "planetar_hall",
+        "name": "Celestial Bastion",
+        "icon": "ti-shield-check",
+        "goldCost": 12000,
+        "manaCost": 3200,
+        "turns": 35,
+        "goldGen": 14,
+        "manaGen": 6
+      },
+      {
+        "id": "solar_hall",
+        "name": "Radiant Sanctum",
+        "icon": "ti-sparkles",
+        "goldCost": 12000,
+        "manaCost": 3200,
+        "turns": 35,
+        "goldGen": 14,
+        "manaGen": 6
+      },
+      {
+        "id": "empyrean_hall",
+        "name": "Astral Throne",
+        "icon": "ti-flame",
+        "goldCost": 28000,
+        "manaCost": 8000,
+        "turns": 55,
+        "goldGen": 22,
+        "manaGen": 10
+      },
+      {
+        "id": "divine_mint",
+        "name": "Divine Mint",
+        "icon": "ti-coin",
+        "goldCost": 155,
+        "manaCost": 15,
+        "turns": 2,
+        "goldGen": 15,
+        "manaGen": 0
+      },
+      {
+        "id": "astral_font",
+        "name": "Astral Font",
+        "icon": "ti-sparkles",
+        "goldCost": 140,
+        "manaCost": 35,
+        "turns": 3,
+        "goldGen": 0,
+        "manaGen": 8
+      }
     ],
-    units: [
-      { id:'warpriest', name:'War Priest',  icon:'ti-cross',        atk:3,  def:5,  power:5,   goldCost:20,  manaCost:4,   goldUpkeep:1.5, manaUpkeep:0.8,  req:'chapel'     },
-      { id:'knight',    name:'Holy Knight', icon:'ti-sword',        atk:8,  def:8,  power:9,   goldCost:55,  manaCost:12,  goldUpkeep:4,   manaUpkeep:2,    req:'barracks'   },
-      { id:'paladin',   name:'Paladin',     icon:'ti-shield-check', atk:14, def:12, power:18,  goldCost:110, manaCost:30,  goldUpkeep:8,   manaUpkeep:4,    req:'paladinhall'},
-      { id:'angel',     name:'Angel',       icon:'ti-feather',      atk:24, def:16, power:35,  goldCost:230, manaCost:70,  goldUpkeep:15,  manaUpkeep:8,    req:'angelspire' },
-      { id:'seraphim',  name:'Seraphim',    icon:'ti-sparkles',     atk:60, def:40, power:100, goldCost:500, manaCost:160, goldUpkeep:32,  manaUpkeep:18,   req:'sanctum'    },
-    ],
-  },
+    "units": [
+      {
+        "id": "sprite",
+        "name": "Sprite",
+        "icon": "ti-sword",
+        "atk": 7,
+        "def": 6,
+        "power": 28,
+        "goldCost": 24,
+        "manaCost": 10,
+        "goldUpkeep": 0.6,
+        "manaUpkeep": 0.3,
+        "req": "sprite_hall"
+      },
+      {
+        "id": "pixie",
+        "name": "Pixie",
+        "icon": "ti-sword",
+        "atk": 7,
+        "def": 6,
+        "power": 27,
+        "goldCost": 28,
+        "manaCost": 12,
+        "goldUpkeep": 0.8,
+        "manaUpkeep": 0.4,
+        "req": "pixie_hall"
+      },
+      {
+        "id": "hippogriff",
+        "name": "Hippogriff",
+        "icon": "ti-sword",
+        "atk": 17,
+        "def": 14,
+        "power": 46,
+        "goldCost": 85,
+        "manaCost": 38,
+        "goldUpkeep": 1.8,
+        "manaUpkeep": 0.5,
+        "req": "hippogriff_hall"
+      },
+      {
+        "id": "pegasus",
+        "name": "Pegasus",
+        "icon": "ti-sword",
+        "atk": 16,
+        "def": 14,
+        "power": 46,
+        "goldCost": 110,
+        "manaCost": 55,
+        "goldUpkeep": 2,
+        "manaUpkeep": 0.6,
+        "req": "pegasus_hall"
+      },
+      {
+        "id": "couatl",
+        "name": "Couatl",
+        "icon": "ti-sword",
+        "atk": 21,
+        "def": 15,
+        "power": 58,
+        "goldCost": 560,
+        "manaCost": 300,
+        "goldUpkeep": 4.5,
+        "manaUpkeep": 3,
+        "req": "couatl_hall"
+      },
+      {
+        "id": "deva",
+        "name": "Deva",
+        "icon": "ti-sword",
+        "atk": 23,
+        "def": 19,
+        "power": 62,
+        "goldCost": 840,
+        "manaCost": 460,
+        "goldUpkeep": 6,
+        "manaUpkeep": 4.5,
+        "req": "deva_hall"
+      },
+      {
+        "id": "planetar",
+        "name": "Planetar",
+        "icon": "ti-sword",
+        "atk": 39,
+        "def": 30,
+        "power": 96,
+        "goldCost": 2040,
+        "manaCost": 1080,
+        "goldUpkeep": 13,
+        "manaUpkeep": 8,
+        "req": "planetar_hall"
+      },
+      {
+        "id": "solar",
+        "name": "Solar",
+        "icon": "ti-sword",
+        "atk": 44,
+        "def": 33,
+        "power": 110,
+        "goldCost": 2260,
+        "manaCost": 1220,
+        "goldUpkeep": 14,
+        "manaUpkeep": 10,
+        "req": "solar_hall"
+      },
+      {
+        "id": "empyrean",
+        "name": "Empyrean",
+        "icon": "ti-sword",
+        "atk": 65,
+        "def": 51,
+        "power": 150,
+        "goldCost": 6600,
+        "manaCost": 3360,
+        "goldUpkeep": 27,
+        "manaUpkeep": 16,
+        "req": "empyrean_hall"
+      }
+    ]
+  }
 };
 
 const AUCTION_ITEMS = [
