@@ -28,7 +28,11 @@ export const api = {
   gameData: () => req('GET', '/gamedata'),
 
   // Actions
-  explore:  (turns) => req('POST', '/game/explore', { turns }),
+  explore:  (turns) => {
+    // Server keys explore actions by name, not turn cost — map cost -> type.
+    const type = turns === 1 ? 'scout' : turns === 3 ? 'expedition' : turns === 8 ? 'conquest' : null
+    return req('POST', '/game/explore', { type })
+  },
   build:    (buildingId) => req('POST', '/game/build', { buildingId }),
   recruit:  (unitId, qty) => req('POST', '/game/recruit', { unitId, qty: qty || 5 }),
   battle:   (targetId, units, itemId) => req('POST', '/game/battle', { targetId, units, itemId }),
