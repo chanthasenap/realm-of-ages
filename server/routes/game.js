@@ -213,7 +213,7 @@ router.post('/build', async (req, res) => {
 
     const msg = `Built ${bDef.name} (Lv.${newLevel}). Generating +${bDef.goldGen*newLevel}g/hr, +${bDef.manaGen*newLevel}m/hr.`;
     await logEvent(req.session.playerId, msg, 'build');
-    res.json({ ok: true, building: buildingId, level: newLevel, message: msg });
+    res.json({ ok: true, building: buildingId, buildingName: bDef.name, level: newLevel, message: msg });
   } catch (err) {
     console.error('Build error:', err);
     res.status(500).json({ error: 'Build failed.' });
@@ -271,7 +271,7 @@ router.post('/recruit', async (req, res) => {
 
     const msg = `Recruited ${qty}× ${uDef.name}.`;
     await logEvent(req.session.playerId, msg, 'recruit');
-    res.json({ ok: true, unit: unitId, quantity: qty, message: msg });
+    res.json({ ok: true, unit: unitId, unitName: uDef.name, quantity: qty, message: msg });
   } catch (err) {
     console.error('Recruit error:', err);
     res.status(500).json({ error: 'Recruit failed.' });
@@ -298,6 +298,7 @@ router.post('/battle', async (req, res) => {
 
     const winChance = attacker.power / (attacker.power + (defender.power || 1) * 0.8);
     const win = Math.random() < winChance;
+    const powerRatio = defender.power / (attacker.power || 1);
 
     let result;
     if (win) {
@@ -318,7 +319,7 @@ router.post('/battle', async (req, res) => {
       );
       const msg = `Victory over ${defender.name}! Plundered +${goldGain}g, +${manaGain}m, seized ${landGain} acres.`;
       await logEvent(attacker.id, msg, 'battle_win');
-      result = { win: true, goldGain, manaGain, landGain, targetName: defender.name, message: msg };
+      result = { win: true, goldGain, manaGain, landGain, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, message: msg };
     } else {
       const goldLoss = Math.round(attacker.gold * 0.08);
       const manaLoss = Math.round(attacker.mana * 0.05);
@@ -332,7 +333,7 @@ router.post('/battle', async (req, res) => {
       );
       const msg = `Defeated by ${defender.name}. Lost ${goldLoss}g and ${manaLoss}m.`;
       await logEvent(attacker.id, msg, 'battle_loss');
-      result = { win: false, goldLoss, manaLoss, targetName: defender.name, message: msg };
+      result = { win: false, goldLoss, manaLoss, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, message: msg };
     }
 
     await updatePower(attacker.id);

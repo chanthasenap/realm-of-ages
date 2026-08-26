@@ -243,18 +243,28 @@ export default function Game() {
     try {
       const res = await build(buildingId)
       const bDef = f?.buildings.find(b => b.id === buildingId)
-      if (res.stackable) {
+      // The server only ever returns a level (buildings have no separate
+      // "quantity" — level 1 is the first build, level 2+ is an upgrade),
+      // so use that as the source of truth instead of a made-up qty field.
+      const name = res.buildingName || bDef?.name || 'Building'
+      const isFirstBuild = res.level === 1
+      if (bDef?.stackable) {
         const isGold = !!bDef?.goldPerBld
         const bThumb = <ResourceBuildingImg isGold={isGold} accent={isGold ? '#c9a84c' : '#a89cf0'} size={36}/>
-        addLog({ cls: 'res', icon: 'build', msg: `Built ${res.buildingName}`, subtext: `+${res.qty} structures added` })
-        showToast(`${res.buildingName} constructed`, `+${res.qty} structures added to your domain`, 'build', bThumb)
+        const genRate = (isGold ? (bDef.goldPerBld || 0) : (bDef.manaPerBld || 0)) * res.level
+        const genLabel = `+${genRate}${isGold ? 'g' : 'm'}/turn at Lv.${res.level}`
+        addLog({ cls: 'res', icon: 'build', msg: `${isFirstBuild ? 'Built' : 'Upgraded'} ${name} (Lv.${res.level})`, subtext: genLabel })
+        showToast(`${name} ${isFirstBuild ? 'constructed' : 'upgraded'}`, genLabel, 'build', bThumb)
       } else {
         const trainedUnit = bDef?.unitId ? f.units.find(u => u.id === bDef.unitId) : null
         const bThumb = trainedUnit
           ? <UnitPortrait unitId={trainedUnit.id} artType={trainedUnit.artType} factionColor={f.color} size={36}/>
           : null
-        addLog({ cls: 'res', icon: 'build', msg: `Constructed ${res.buildingName} (Lv.${res.level})`, subtext: `Unit ATK & DEF enhanced` })
-        showToast(`${res.buildingName} upgraded`, `Now at Level ${res.level} — unit stats increased`, 'build', bThumb)
+        const sub = isFirstBuild
+          ? `${trainedUnit?.name || 'Unit'} recruitment unlocked`
+          : `Now at Level ${res.level} — unit stats increased`
+        addLog({ cls: 'res', icon: 'build', msg: `${isFirstBuild ? 'Constructed' : 'Upgraded'} ${name} (Lv.${res.level})`, subtext: sub })
+        showToast(`${name} ${isFirstBuild ? 'constructed' : 'upgraded'}`, sub, 'build', bThumb)
       }
     } catch (e) {
       addLog({ cls: 'err', icon: 'err', msg: e.message || 'Build failed.' })
@@ -270,8 +280,10 @@ export default function Game() {
       const res = await recruit(unitId)
       const uDef = f?.units.find(u => u.id === unitId)
       const rThumb = uDef ? <UnitPortrait unitId={uDef.id} artType={uDef.artType} factionColor={f.color} size={36}/> : null
-      addLog({ cls: 'res', icon: 'recruit', msg: `Recruited ${res.qty}× ${res.unitName}`, subtext: res.bonus > 0 ? `+${res.bonus} bonus from Grimoire of Command` : `New recruits joined your army` })
-      showToast(`${res.qty}× ${res.unitName} recruited`, res.bonus > 0 ? `Includes +${res.bonus} bonus from Grimoire of Command` : `Ranks strengthened`, 'recruit', rThumb)
+      const qty = res.quantity
+      const name = res.unitName || uDef?.name || 'Unit'
+      addLog({ cls: 'res', icon: 'recruit', msg: `Recruited ${qty}× ${name}`, subtext: `New recruits joined your army` })
+      showToast(`${qty}× ${name} recruited`, `Ranks strengthened`, 'recruit', rThumb)
     } catch (e) {
       addLog({ cls: 'err', icon: 'err', msg: 'Recruit failed.' })
       showToast('Recruitment failed', e.message, 'err')
@@ -299,13 +311,12 @@ export default function Game() {
     setLoading(true)
     try {
       const res = await battle(targetId, unitSelection, bcItem || null)
-      const msg = res.won ? `Victory vs ${res.targetName}` : `Defeat vs ${res.targetName}`
-      addLog({ cls: res.won ? 'win' : 'lose', icon: res.won ? 'win' : 'lose', type: 'battle', msg, result: { ...res, playerFaction: player?.faction } })
-      if (res.won) {
-        showToast(`Victory — ${res.targetName} defeated`, `+${res.goldGained}g · +${res.manaGained}m · +${res.landGained} acres`, 'win')
+      const msg = res.win ? `Victory vs ${res.targetName}` : `Defeat vs ${res.targetName}`
+      addLog({ cls: res.win ? 'win' : 'lose', icon: res.win ? 'win' : 'lose', type: 'battle', msg, result: { ...res, playerFaction: player?.faction } })
+      if (res.win) {
+        showToast(`Victory — ${res.targetName} defeated`, `+${res.goldGain}g · +${res.manaGain}m · +${res.landGain} acres`, 'win')
       } else {
-        const artMsg = res.artifactTransferred ? ` · Lost ${res.artifactTransferred}` : ''
-        showToast(`Defeat — ${res.targetName} prevailed`, `−${res.goldLost}g · −${res.manaLost}m · regroup and rebuild${artMsg}`, 'lose')
+        showToast(`Defeat — ${res.targetName} prevailed`, `−${res.goldLoss}g · −${res.manaLoss}m · regroup and rebuild`, 'lose')
       }
     } catch (e) {
       addLog({ cls: 'err', icon: 'err', msg: 'Battle failed.' })
@@ -3313,11 +3324,13 @@ function FeedEntry({ entry }) {
 function BattleCard({ entry, defaultExpanded = false, compact = false }) {
   const [open, setOpen] = useState(defaultExpanded)
   const { result, ts } = entry
-  const won      = result.won
+  const won      = result.win
   const accent   = won ? '#6dccaa' : '#e87878'
   const ratio    = result.powerRatio || 1
   const pctLabel = ratio >= 1.3 ? 'Uphill battle' : ratio <= 0.75 ? 'Dominant match' : 'Balanced fight'
-  const winOdds  = ratio >= 1 ? '68%' : '42%'
+  const winOdds  = result.winChance != null ? `${Math.round(result.winChance * 100)}%` : '—'
+  // Per-unit casualty simulation isn't implemented server-side yet — battles
+  // only move gold/mana/land, so this always renders as "no losses" for now.
   const casualties = Object.entries(result.casualties || {}).filter(([, c]) => c.lost > 0)
 
   return (
@@ -3348,12 +3361,12 @@ function BattleCard({ entry, defaultExpanded = false, compact = false }) {
           {/* Center: chips */}
           <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap',padding:'0 12px'}}>
             {won ? <>
-              <Chip icon={<IconCoin size={9}/>}     color="#f0d980"  bg="rgba(0,0,0,.25)"  border="rgba(240,217,128,.45)"  label={`+${result.goldGained}g plundered`}/>
-              <Chip icon={<IconSparkles size={9}/>} color="#b8aff5"  bg="rgba(0,0,0,.25)"  border="rgba(184,175,245,.45)"  label={`+${result.manaGained}m seized`}/>
-              <Chip icon={<IconMap size={9}/>}      color="#7debb8"  bg="rgba(0,0,0,.25)"  border="rgba(125,235,184,.45)"  label={`+${result.landGained} acres`}/>
+              <Chip icon={<IconCoin size={9}/>}     color="#f0d980"  bg="rgba(0,0,0,.25)"  border="rgba(240,217,128,.45)"  label={`+${result.goldGain}g plundered`}/>
+              <Chip icon={<IconSparkles size={9}/>} color="#b8aff5"  bg="rgba(0,0,0,.25)"  border="rgba(184,175,245,.45)"  label={`+${result.manaGain}m seized`}/>
+              <Chip icon={<IconMap size={9}/>}      color="#7debb8"  bg="rgba(0,0,0,.25)"  border="rgba(125,235,184,.45)"  label={`+${result.landGain} acres`}/>
             </> : <>
-              <Chip icon={<IconCoin size={9}/>}     color="#f09090"  bg="rgba(0,0,0,.25)"  border="rgba(240,144,144,.45)"  label={`−${result.goldLost}g lost`}/>
-              <Chip icon={<IconSparkles size={9}/>} color="#f09090"  bg="rgba(0,0,0,.25)"  border="rgba(240,144,144,.45)"  label={`−${result.manaLost}m lost`}/>
+              <Chip icon={<IconCoin size={9}/>}     color="#f09090"  bg="rgba(0,0,0,.25)"  border="rgba(240,144,144,.45)"  label={`−${result.goldLoss}g lost`}/>
+              <Chip icon={<IconSparkles size={9}/>} color="#f09090"  bg="rgba(0,0,0,.25)"  border="rgba(240,144,144,.45)"  label={`−${result.manaLoss}m lost`}/>
             </>}
             {result.totalCasualties > 0 && (
               <Chip icon={<IconSkull size={9}/>} color="#f09090" bg="rgba(0,0,0,.25)" border="rgba(240,144,144,.45)" label={`${result.totalCasualties} unit${result.totalCasualties > 1?'s':''} lost`}/>
