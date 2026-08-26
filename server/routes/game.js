@@ -17,13 +17,19 @@ router.use(requireAuth);
 
 // ── Helpers ───────────────────────────────────────────────────────
 async function getFullState(playerId) {
-  const player    = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
-  const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [playerId]);
-  const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [playerId]);
-  const items     = await db.all('SELECT * FROM items WHERE player_id = ? ORDER BY acquired_at DESC LIMIT 20', [playerId]);
-  const events    = await db.all('SELECT * FROM event_log WHERE player_id = ? ORDER BY occurred_at DESC LIMIT 30', [playerId]);
-  const power     = calcPower(player, buildings, army, player.faction);
-  const economy   = calcEconomy(player, buildings, army, player.faction);
+  const player       = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
+  const buildingRows = await db.all('SELECT * FROM buildings WHERE player_id = ?', [playerId]);
+  const armyRows      = await db.all('SELECT * FROM army WHERE player_id = ?', [playerId]);
+  const items         = await db.all('SELECT * FROM items WHERE player_id = ? ORDER BY acquired_at DESC LIMIT 20', [playerId]);
+  const events        = await db.all('SELECT * FROM event_log WHERE player_id = ? ORDER BY occurred_at DESC LIMIT 30', [playerId]);
+  const power         = calcPower(player, buildingRows, armyRows, player.faction);
+  const economy       = calcEconomy(player, buildingRows, armyRows, player.faction);
+
+  // The frontend expects buildings/army as { id: value } maps, not raw DB rows —
+  // calcPower/calcEconomy above need the row arrays, so convert only for the response.
+  const buildings = Object.fromEntries(buildingRows.map(b => [b.building_id, b.level]));
+  const army      = Object.fromEntries(armyRows.map(a => [a.unit_id, a.quantity]));
+
   return { player, buildings, army, items, events, power, economy };
 }
 
