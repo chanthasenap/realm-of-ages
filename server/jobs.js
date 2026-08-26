@@ -46,10 +46,12 @@ function startJobs() {
         const manaTick = Math.round(eco.manaNet / 60);
 
         if (goldTick !== 0 || manaTick !== 0) {
+          // GREATEST() on Postgres, MAX() on sql.js — MAX(a,b) is aggregate-only in Postgres
+          const clampFn = db._type === 'postgres' ? 'GREATEST' : 'MAX';
           await db.run(
             `UPDATE players SET
-              gold = MAX(0, gold + ?),
-              mana = MAX(0, mana + ?)
+              gold = ${clampFn}(0, gold + ?),
+              mana = ${clampFn}(0, mana + ?)
              WHERE id = ?`,
             [goldTick, manaTick, player.id]
           );

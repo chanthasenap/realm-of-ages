@@ -245,7 +245,7 @@ router.post('/battle', async (req, res) => {
         [goldGain, manaGain, landGain, attacker.id]
       );
       await db.run(
-        'UPDATE players SET gold = MAX(0, gold - ?), mana = MAX(0, mana - ?), defeats = defeats + 1 WHERE id = ?',
+        `UPDATE players SET gold = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, gold - ?), mana = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, mana - ?), defeats = defeats + 1 WHERE id = ?`,
         [goldGain, manaGain, defender.id]
       );
       await db.run(
@@ -259,7 +259,7 @@ router.post('/battle', async (req, res) => {
       const goldLoss = Math.round(attacker.gold * 0.08);
       const manaLoss = Math.round(attacker.mana * 0.05);
       await db.run(
-        'UPDATE players SET gold = MAX(0, gold - ?), mana = MAX(0, mana - ?), defeats = defeats + 1 WHERE id = ?',
+        `UPDATE players SET gold = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, gold - ?), mana = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, mana - ?), defeats = defeats + 1 WHERE id = ?`,
         [goldLoss, manaLoss, attacker.id]
       );
       await db.run(
