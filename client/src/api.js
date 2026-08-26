@@ -34,7 +34,7 @@ export const api = {
     return req('POST', '/game/explore', { type })
   },
   build:    (buildingId) => req('POST', '/game/build', { buildingId }),
-  recruit:  (unitId, qty) => req('POST', '/game/recruit', { unitId, qty: qty || 5 }),
+  recruit:  (unitId, qty) => req('POST', '/game/recruit', { unitId, quantity: qty || 5 }),
   battle:   (targetId, units, itemId) => req('POST', '/game/battle', { targetId, units, itemId }),
 
   // Auction
