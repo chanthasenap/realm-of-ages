@@ -57,7 +57,8 @@
     padding-bottom: 6px;
     scroll-snap-type: x proximity;
   }
-  .grid .card { flex: 0 0 148px; scroll-snap-align: start; }
+  .grid .card { flex: 0 0 158px; scroll-snap-align: start; }
+  .grid.hasSelection .card.sel { flex: 0 0 82vw; }
 }
 
 /* -- Card -- */
@@ -74,31 +75,46 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transform-origin: center center;
-  transition: transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s ease, border-color .3s ease;
+  transition: flex-grow .45s cubic-bezier(.22,1,.36,1), flex-basis .45s cubic-bezier(.22,1,.36,1),
+              transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s ease, border-color .3s ease, opacity .3s ease;
 }
 
 .card:hover {
-  transform: translateY(-6px) scale(1.1);
-  z-index: 10;
+  transform: translateY(-5px);
   border-color: color-mix(in srgb, var(--fc) 50%, var(--border2));
-  box-shadow: 0 18px 40px rgba(0,0,0,.5), 0 0 28px color-mix(in srgb, var(--fc) 25%, transparent);
+  box-shadow: 0 16px 36px rgba(0,0,0,.45), 0 0 26px color-mix(in srgb, var(--fc) 22%, transparent);
 }
 
-.card.sel {
+.card:focus-visible {
+  outline: 2px solid var(--fc);
+  outline-offset: 3px;
+}
+
+/* One faction chosen: it claims most of the row, the rest ease back
+   so the choice reads as an obvious, deliberate size difference —
+   real layout weight, not just an overlapping hover trick. */
+.grid.hasSelection .card { flex: 0.6 1 0; opacity: .82; }
+.grid.hasSelection .card:hover { opacity: 1; }
+.grid.hasSelection .card.sel {
+  flex: 3.4 1 0;
+  opacity: 1;
   border-color: var(--fc);
-  transform: translateY(-8px) scale(1.14);
-  z-index: 20;
+  transform: translateY(-6px);
   animation: cardPulse 2.6s ease-in-out infinite;
 }
-
-.card.sel:hover {
-  transform: translateY(-9px) scale(1.16);
-}
+.grid.hasSelection .card.sel:hover { transform: translateY(-7px); }
 
 @keyframes cardPulse {
-  0%, 100% { box-shadow: 0 14px 34px rgba(0,0,0,.5), 0 0 26px color-mix(in srgb, var(--fc) 35%, transparent), 0 0 2px var(--fc); }
-  50%      { box-shadow: 0 14px 34px rgba(0,0,0,.5), 0 0 48px color-mix(in srgb, var(--fc) 60%, transparent), 0 0 4px var(--fc); }
+  0%, 100% { box-shadow: 0 16px 36px rgba(0,0,0,.5), 0 0 26px color-mix(in srgb, var(--fc) 35%, transparent), 0 0 2px var(--fc); }
+  50%      { box-shadow: 0 16px 36px rgba(0,0,0,.5), 0 0 50px color-mix(in srgb, var(--fc) 60%, transparent), 0 0 4px var(--fc); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .grid.hasSelection .card, .grid.hasSelection .card.sel, .heroImg {
+    transition-duration: .15s;
+    animation: none;
+  }
+  .particle { animation: none; opacity: .75; }
 }
 
 /* -- Hero -- */
@@ -115,9 +131,12 @@
   height: 100%;
   object-fit: cover;
   object-position: center top;
-  transition: transform .45s cubic-bezier(.22,1,.36,1);
+  transition: transform .5s cubic-bezier(.22,1,.36,1);
   display: block;
 }
+.card:hover .heroImg { transform: scale(1.06); }
+.card.sel .heroImg { transform: scale(1.03); }
+.card.sel:hover .heroImg { transform: scale(1.07); }
 
 .heroFallback {
   width: 100%;
@@ -164,28 +183,20 @@
   50%      { transform: translateY(-10px) scale(1.25); opacity: 1; }
 }
 
-.crest {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  border-radius: 50%;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.6));
-}
-
 .selBadge {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
   background: var(--fc);
   color: #0c0c10;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: .04em;
   text-transform: uppercase;
-  padding: 4px 9px;
+  padding: 5px 11px;
   border-radius: 20px;
   box-shadow: 0 0 14px color-mix(in srgb, var(--fc) 70%, transparent);
   animation: badgeIn .3s cubic-bezier(.34,1.56,.64,1);
@@ -203,19 +214,36 @@
 }
 
 .fname {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 800;
   color: #fff;
   line-height: 1.15;
   text-shadow: 0 0 18px var(--fc), 0 2px 6px rgba(0,0,0,.9);
+  transition: font-size .35s ease;
 }
+.card.sel .fname { font-size: 28px; }
 
 .epithet {
-  font-size: 10px;
-  color: rgba(255,255,255,0.68);
-  margin-top: 2px;
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 3px;
   font-style: italic;
   text-shadow: 0 1px 4px rgba(0,0,0,.8);
+  transition: font-size .35s ease;
+}
+.card.sel .epithet { font-size: 13px; }
+
+.lore {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.82);
+  text-shadow: 0 1px 4px rgba(0,0,0,.9);
+  max-width: 60ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* -- Body -- */
@@ -224,15 +252,15 @@
   padding: 12px 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   text-align: left;
 }
 
 .identity {
   display: inline-block;
   align-self: flex-start;
-  font-size: 9px;
-  padding: 2px 9px;
+  font-size: 9.5px;
+  padding: 3px 10px;
   border-radius: 10px;
   font-weight: 600;
   letter-spacing: .05em;
@@ -240,8 +268,8 @@
 
 .bonuses {
   display: flex;
-  gap: 12px;
-  font-size: 10px;
+  gap: 14px;
+  font-size: 10.5px;
   font-weight: 600;
 }
 .bonuses span { display: inline-flex; align-items: center; gap: 4px; }
@@ -252,7 +280,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 9.5px;
+  font-size: 10px;
 }
 .matchup span { display: inline-flex; align-items: center; gap: 4px; }
 .adv    { color: var(--green); }
@@ -266,8 +294,8 @@
 }
 
 .ubadge {
-  font-size: 8.5px;
-  padding: 3px 7px;
+  font-size: 9px;
+  padding: 3px 8px;
   border-radius: 4px;
   white-space: nowrap;
   background: color-mix(in srgb, var(--fc) 14%, transparent);
@@ -276,8 +304,8 @@
 }
 
 .ubadgeMore {
-  font-size: 8.5px;
-  padding: 3px 7px;
+  font-size: 9px;
+  padding: 3px 8px;
   border-radius: 4px;
   white-space: nowrap;
   color: var(--muted);

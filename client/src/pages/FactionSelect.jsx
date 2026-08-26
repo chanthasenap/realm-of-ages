@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../hooks/useGameStore.js'
 import { FACTIONS, CRESTS } from '../data/factions.js'
 import { IconArrowRight, IconCheck, IconCoin, IconSparkles, IconSwords } from '@tabler/icons-react'
-import { FactionImage } from '../components/Portrait.jsx'
 import s from './FactionSelect.module.css'
 
 const PARTICLES = [
@@ -43,13 +42,14 @@ export default function FactionSelect() {
       <h1 className={s.heading}>Select Your Faction</h1>
       <p className={s.sub}>Your faction determines your units, buildings, and resource bonuses. This choice is permanent.</p>
 
-      <div className={s.grid}>
+      <div className={`${s.grid} ${selected ? s.hasSelection : ''}`}>
         {Object.entries(FACTIONS).map(([fid, f]) => (
           <FactionCard
             key={fid}
             fid={fid}
             f={f}
             selected={selected === fid}
+            anySelected={!!selected}
             onSelect={() => setSelected(fid)}
           />
         ))}
@@ -68,30 +68,29 @@ export default function FactionSelect() {
   )
 }
 
-function FactionCard({ fid, f, selected, onSelect }) {
+function FactionCard({ fid, f, selected, anySelected, onSelect }) {
   const [imgFailed, setImgFailed] = useState(false)
-  const [hover, setHover] = useState(false)
-  const zoomed = hover || selected
+  const loreLine = f.lore ? f.lore.split('\n')[0] : ''
+  const unitCount = selected ? 7 : 3
 
   return (
     <div
       className={`${s.card} ${selected ? s.sel : ''}`}
       style={{ '--fc': f.color }}
       onClick={onSelect}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       role="button"
       tabIndex={0}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect() }}
+      aria-pressed={selected}
+      aria-label={`${f.name} — ${f.epithet}${selected ? ' (selected)' : ''}`}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
     >
       <div className={s.hero}>
         {!imgFailed ? (
           <img
             src={`/images/factions/${fid}.jpg`}
-            alt={f.name}
+            alt=""
             onError={() => setImgFailed(true)}
             className={s.heroImg}
-            style={{ transform: zoomed ? 'scale(1.09)' : 'scale(1)' }}
           />
         ) : (
           <div
@@ -104,7 +103,7 @@ function FactionCard({ fid, f, selected, onSelect }) {
         <div className={s.heroGlow} />
 
         {selected && (
-          <div className={s.particles}>
+          <div className={s.particles} aria-hidden="true">
             {PARTICLES.map((p, i) => (
               <span
                 key={i}
@@ -120,23 +119,16 @@ function FactionCard({ fid, f, selected, onSelect }) {
           </div>
         )}
 
-        <div className={s.crest}>
-          <FactionImage
-            factionId={fid}
-            size={44}
-            style={{ border: `2px solid ${f.color}`, boxShadow: `0 0 14px ${f.color}aa` }}
-          />
-        </div>
-
         {selected && (
           <div className={s.selBadge}>
-            <IconCheck size={12} /> Chosen
+            <IconCheck size={13} /> Chosen
           </div>
         )}
 
         <div className={s.heroText}>
           <div className={s.fname}>{f.name}</div>
           <div className={s.epithet}>{f.epithet}</div>
+          {selected && loreLine && <div className={s.lore}>{loreLine}</div>}
         </div>
       </div>
 
@@ -146,8 +138,8 @@ function FactionCard({ fid, f, selected, onSelect }) {
         </div>
 
         <div className={s.bonuses}>
-          <span className={s.bonusGold}><IconCoin size={12} /> Gold +{Math.round(f.goldBonus * 100)}%</span>
-          <span className={s.bonusMana}><IconSparkles size={12} /> Mana +{Math.round(f.manaBonus * 100)}%</span>
+          <span className={s.bonusGold}><IconCoin size={13} /> Gold +{Math.round(f.goldBonus * 100)}%</span>
+          <span className={s.bonusMana}><IconSparkles size={13} /> Mana +{Math.round(f.manaBonus * 100)}%</span>
         </div>
 
         <div className={s.matchup}>
@@ -156,10 +148,10 @@ function FactionCard({ fid, f, selected, onSelect }) {
         </div>
 
         <div className={s.units}>
-          {f.units.slice(0, 4).map(u => (
+          {f.units.slice(0, unitCount).map(u => (
             <span key={u.id} className={s.ubadge}>{u.name}</span>
           ))}
-          <span className={s.ubadgeMore}>+{f.units.length - 4} more</span>
+          {f.units.length > unitCount && <span className={s.ubadgeMore}>+{f.units.length - unitCount} more</span>}
         </div>
       </div>
     </div>
