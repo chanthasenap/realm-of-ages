@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../hooks/useGameStore.js'
 import { FACTIONS, CRESTS } from '../data/factions.js'
@@ -16,8 +16,46 @@ const PARTICLES = [
 export default function FactionSelect() {
   const [selected, setSelected] = useState(null)
   const [loading, setLoading]   = useState(false)
+  const [btnOffset, setBtnOffset] = useState(0)
   const { setFaction } = useGameStore()
   const nav = useNavigate()
+
+  const pageRef  = useRef(null)
+  const gridRef  = useRef(null)
+  const cardRefs = useRef({})
+
+  // Keep the March button horizontally centered under whichever card is
+  // currently the big/selected one, instead of always sitting dead-center
+  // under the whole row. Cards animate their width via a CSS transition
+  // (flex-grow), so we sample the card's position every frame for a bit
+  // after selection changes to follow it smoothly, then settle.
+  useEffect(() => {
+    if (!selected) { setBtnOffset(0); return }
+
+    const recompute = () => {
+      const cardEl = cardRefs.current[selected]
+      const pageEl = pageRef.current
+      if (!cardEl || !pageEl) return
+      const cardRect = cardEl.getBoundingClientRect()
+      const pageRect = pageEl.getBoundingClientRect()
+      const rawOffset = (cardRect.left + cardRect.width / 2) - (pageRect.left + pageRect.width / 2)
+      // Clamp so the button can never drift past the page edge on very
+      // wide/narrow layouts (e.g. picking the leftmost or rightmost card).
+      const maxOffset = Math.max(0, pageRect.width / 2 - 150)
+      setBtnOffset(Math.max(-maxOffset, Math.min(maxOffset, rawOffset)))
+    }
+
+    let raf
+    const start = performance.now()
+    const tick = (now) => {
+      recompute()
+      if (now - start < 550) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+
+    window.addEventListener('resize', recompute)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', recompute) }
+  }, [selected])
 
   const proceed = async () => {
     if (!selected) return
@@ -35,29 +73,29 @@ export default function FactionSelect() {
   const selFaction = selected ? FACTIONS[selected] : null
 
   return (
-    <div className={s.page}>
+    <div className={s.page} ref={pageRef}>
       <div className={s.bgGlow} style={selFaction ? { '--fc': selFaction.color, opacity: 1 } : {}} />
 
       <div className={s.eyebrow}>Choose Your Path</div>
       <h1 className={s.heading}>Select Your Faction</h1>
       <p className={s.sub}>Your faction determines your units, buildings, and resource bonuses. This choice is permanent.</p>
 
-      <div className={`${s.grid} ${selected ? s.hasSelection : ''}`}>
+      <div className={`${s.grid} ${selected ? s.hasSelection : ''}`} ref={gridRef}>
         {Object.entries(FACTIONS).map(([fid, f]) => (
           <FactionCard
             key={fid}
             fid={fid}
             f={f}
             selected={selected === fid}
-            anySelected={!!selected}
             onSelect={() => setSelected(fid)}
+            registerRef={el => { if (el) cardRefs.current[fid] = el }}
           />
         ))}
       </div>
 
       <button
         className={`${s.btnProc} ${selected ? s.rdy : ''}`}
-        style={selFaction ? { '--fc': selFaction.color } : {}}
+        style={selFaction ? { '--fc': selFaction.color, transform: `translateX(${btnOffset}px)` } : {}}
         disabled={!selected || loading}
         onClick={proceed}
       >
@@ -68,13 +106,14 @@ export default function FactionSelect() {
   )
 }
 
-function FactionCard({ fid, f, selected, anySelected, onSelect }) {
+function FactionCard({ fid, f, selected, onSelect, registerRef }) {
   const [imgFailed, setImgFailed] = useState(false)
   const loreLine = f.lore ? f.lore.split('\n')[0] : ''
   const unitCount = selected ? 7 : 3
 
   return (
     <div
+      ref={registerRef}
       className={`${s.card} ${selected ? s.sel : ''}`}
       style={{ '--fc': f.color }}
       onClick={onSelect}
@@ -143,8 +182,8 @@ function FactionCard({ fid, f, selected, anySelected, onSelect }) {
         </div>
 
         <div className={s.matchup}>
-          <span className={s.adv}><IconSwords size={11} /> Strong vs: {f.advF.map(x => FACTIONS[x].shortName).join(', ')}</span>
-          <span className={s.disadv}>↓ Weak vs: {f.disadvF.map(x => FACTIONS[x].shortName).join(', ')}</span>
+          <span className={s.adv}><IconSwords size={11} /><span className={s.matchupText}>Strong vs: {f.advF.map(x => FACTIONS[x].shortName).join(', ')}</span></span>
+          <span className={s.disadv}><span className={s.matchupText}>↓ Weak vs: {f.disadvF.map(x => FACTIONS[x].shortName).join(', ')}</span></span>
         </div>
 
         <div className={s.units}>
