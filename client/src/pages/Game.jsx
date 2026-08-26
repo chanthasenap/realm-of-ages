@@ -7,7 +7,7 @@ import { calcMercRefreshCost } from '../data/mercs.js'
 import { FactionImage, UnitPortrait, ResourceBuildingImg, ItemArt } from '../components/Portrait.jsx'
 import { AnimatedIcon, AnimBtn } from '../components/AnimatedIcon.jsx'
 import { WelcomeModal, OnboardingTour, DailyRewardModal } from '../components/WelcomeFlow.jsx'
-import { generateStreakReward, checkStreakContinuity, getTodayDate } from '../data/streak.js'
+import { generateStreakReward, getTodayDate } from '../data/streak.js'
 import { useAnimatedClick } from '../hooks/useAnimatedClick.js'
 import {
   IconHome, IconReportMoney, IconMapSearch, IconBuildingCastle,
@@ -173,25 +173,21 @@ export default function Game() {
   useEffect(() => { if (faction && !loreFaction) setLoreFaction(faction) }, [faction])
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight }, [log])
 
-  // Streak trigger: fires once per session when turns hit 0
+  // Streak trigger: the server advances the login-streak day count at login/session-
+  // restore (see server/routes/auth.js touchLoginStreak) and reports it via gs.streak.
+  // Show the reward modal once per session whenever today's reward hasn't been claimed yet.
   useEffect(() => {
-    if (!gs || streakTriggeredRef.current) return
-    if ((gs.turns ?? 1) > 0) return
+    if (!gs?.streak || streakTriggeredRef.current) return
     const today = getTodayDate()
-    const streak = gs.streak || { days: 0, chains: 0, shield: false, lastDate: null }
-    if (streak.lastDate === today) return
+    const streak = gs.streak
+    if (streak.lastDate !== today || streak.claimedToday) return
     streakTriggeredRef.current = true
-    const status = checkStreakContinuity(streak.lastDate, streak.shield)
-    const broke = status === 'reset'
-    const usedShield = status === 'shield_used'
-    const newDays = (broke ? 1 : (streak.days || 0) + 1)
-    const newChains = broke ? streak.chains + 1 : streak.chains
-    const rewardData = generateStreakReward(newDays, newChains)
-    setStreakBroke(broke)
-    setShieldUsed(usedShield)
-    setStreakRewardData({ ...rewardData, _newDays: newDays, _newChains: newChains, _usedShield: usedShield })
+    const rewardData = generateStreakReward(streak.days, streak.chains)
+    setStreakBroke(!!streak.justBroke)
+    setShieldUsed(!!streak.justUsedShield)
+    setStreakRewardData({ ...rewardData, _newDays: streak.days, _newChains: streak.chains, _usedShield: !!streak.justUsedShield })
     setShowStreak(true)
-  }, [gs?.turns])
+  }, [gs?.streak?.lastDate, gs?.streak?.claimedToday])
   useEffect(() => {
     const id = setInterval(() => setTimer(t => ({ sec: (t.sec + 1) % 120 })), 1000)
     return () => clearInterval(id)
@@ -3074,11 +3070,10 @@ export default function Game() {
         faction={faction}
         streakBroke={streakBroke}
         shieldUsed={shieldUsed}
-        onClaim={() => {
-          const { _newDays, _newChains, _usedShield } = streakRewardData
-          // If shield was consumed to save streak, don't grant existing shield unless this day also awards one
-          const keepShield = _usedShield ? streakRewardData.awardShield : (gs?.streak?.shield || streakRewardData.awardShield)
-          claimStreakReward(streakRewardData, _newDays, _newChains, keepShield)
+        onClaim={async () => {
+          // Actual gold/mana/land/turns are granted and verified server-side;
+          // this just tells the backend "credit today's reward" and refreshes state.
+          await claimStreakReward()
           setShowStreak(false)
         }}
       />

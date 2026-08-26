@@ -92,8 +92,17 @@ export const useGameStore = create(
       },
       clearLog: () => set(s=>({gameState:{...s.gameState,log:[]}})),
 
-      claimStreakReward: (rewardData, newDays, newChains, keepShield) => {
-        set(s=>({gameState:{...s.gameState,gold:(s.gameState?.gold||0)+(rewardData.gold||0),mana:(s.gameState?.mana||0)+(rewardData.mana||0),streak:{days:newDays,chains:newChains,shield:keepShield,lastDate:new Date().toISOString().split('T')[0]}}}))
+      // Streak day/continuity is already advanced server-side at login; this just
+      // credits today's reward once and re-pulls state so gold/mana/land/turns/streak
+      // all reflect the server's numbers (source of truth), not a client guess.
+      claimStreakReward: async () => {
+        try {
+          const r = await api.claimStreak()
+          await get().fetchGameState()
+          return { success: true, reward: r.reward }
+        } catch (e) {
+          return { success: false, message: e.message }
+        }
       },
 
       initMercListings: () => {

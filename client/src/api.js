@@ -37,6 +37,9 @@ export const api = {
   buyItem:      (itemId) => req('POST', '/game/auction/buy', { itemId }),
   refreshAuction: (paid) => req('POST', '/game/auction/refresh', { paid }),
 
+  // Streak
+  claimStreak: () => req('POST', '/game/streak/claim'),
+
   // Rankings
   rankings: () => req('GET', '/game/rankings'),
 }

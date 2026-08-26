@@ -6,6 +6,7 @@
 const express    = require('express');
 const db         = require('../db');
 const { FACTIONS, AUCTION_ITEMS, calcPower, calcEconomy } = require('../gameData');
+const { todayStr, computeStreakReward } = require('../streakReward');
 const router     = express.Router();
 
 // ── Auth middleware ────────────────────────────────────────────────
@@ -30,7 +31,22 @@ async function getFullState(playerId) {
   const buildings = Object.fromEntries(buildingRows.map(b => [b.building_id, b.level]));
   const army      = Object.fromEntries(armyRows.map(a => [a.unit_id, a.quantity]));
 
-  return { player, buildings, army, items, events, power, economy };
+  // Frontend reads resource fields (turns/gold/mana/land/...) straight off the state
+  // object (gs.turns), not nested under gs.player.turns — spread them at the top level.
+  // Never ship the password hash to the client.
+  const { password, ...playerSafe } = player;
+
+  const streak = {
+    days: player.streak_days || 0,
+    chains: player.streak_chains || 0,
+    shield: !!player.streak_shield,
+    lastDate: player.streak_last_date || null,
+    claimedToday: player.streak_last_date === todayStr() ? !!player.streak_reward_claimed : false,
+    justBroke: !!player.streak_just_broke,
+    justUsedShield: !!player.streak_just_shielded,
+  };
+
+  return { player: playerSafe, ...playerSafe, buildings, army, items, events, power, economy, streak };
 }
 
 async function logEvent(playerId, message, category = 'info') {
@@ -59,9 +75,14 @@ router.post('/faction', async (req, res) => {
     if (!player) return res.status(401).json({ error: 'Player not found.' });
     if (player.faction) return res.status(400).json({ error: 'Faction already chosen.' });
 
-    await db.run('UPDATE players SET faction = ? WHERE id = ?', [faction, req.session.playerId]);
-    await logEvent(req.session.playerId, `Joined the ${FACTIONS[faction].name}.`, 'info');
-    res.json({ ok: true, faction });
+    const FIRST_FACTION_GOLD_BONUS = 200;
+    const FIRST_FACTION_LAND_BONUS = 5;
+    await db.run(
+      'UPDATE players SET faction = ?, gold = gold + ?, land = land + ? WHERE id = ?',
+      [faction, FIRST_FACTION_GOLD_BONUS, FIRST_FACTION_LAND_BONUS, req.session.playerId]
+    );
+    await logEvent(req.session.playerId, `Joined the ${FACTIONS[faction].name}. Received +${FIRST_FACTION_GOLD_BONUS}g and +${FIRST_FACTION_LAND_BONUS} acres to start.`, 'info');
+    res.json({ ok: true, faction, goldBonus: FIRST_FACTION_GOLD_BONUS, landBonus: FIRST_FACTION_LAND_BONUS });
   } catch (err) {
     console.error('Faction error:', err);
     res.status(500).json({ error: 'Could not set faction.' });
@@ -76,6 +97,43 @@ router.get('/state', async (req, res) => {
   } catch (err) {
     console.error('State error:', err);
     res.status(500).json({ error: 'Could not load state.' });
+  }
+});
+
+// ── POST /api/game/streak/claim ─────────────────────────────────────
+// Grants today's login-streak reward. Continuity/day-count is advanced
+// server-side at login (see server/routes/auth.js touchLoginStreak); this
+// endpoint only credits the reward for the day already recorded, once.
+router.post('/streak/claim', async (req, res) => {
+  try {
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player) return res.status(401).json({ error: 'Player not found.' });
+
+    const today = todayStr();
+    if (player.streak_last_date !== today) {
+      return res.status(400).json({ error: 'No streak reward pending today.' });
+    }
+    if (player.streak_reward_claimed) {
+      return res.status(400).json({ error: 'Already claimed today.' });
+    }
+
+    const reward = computeStreakReward(player.streak_days || 1, player.streak_chains || 0);
+    const newShield = reward.awardShield ? true : !!player.streak_shield;
+
+    await db.run(
+      `UPDATE players
+         SET gold = gold + ?, mana = mana + ?, land = land + ?, turns = turns + ?,
+             streak_shield = ?, streak_reward_claimed = TRUE,
+             streak_just_broke = FALSE, streak_just_shielded = FALSE
+       WHERE id = ?`,
+      [reward.goldAmt, reward.manaAmt, reward.landAmt, reward.turnsAmt, newShield, player.id]
+    );
+    await logEvent(req.session.playerId, `Day ${player.streak_days} login streak: +${reward.goldAmt}g, +${reward.manaAmt}m${reward.landAmt ? `, +${reward.landAmt} acres` : ''}${reward.turnsAmt ? `, +${reward.turnsAmt} turns` : ''}.`, 'info');
+
+    res.json({ ok: true, reward: { ...reward, streakDay: player.streak_days, chains: player.streak_chains } });
+  } catch (err) {
+    console.error('Streak claim error:', err);
+    res.status(500).json({ error: 'Could not claim streak reward.' });
   }
 });
 

@@ -1,0 +1,36 @@
+/**
+ * server/migrate.js
+ * Small, idempotent schema patch for databases created before a given
+ * column/default existed. Safe to run on every boot — every statement is
+ * either a no-op if already applied, or uses IF NOT EXISTS/IF EXISTS guards.
+ * (init-db.js's CREATE TABLE IF NOT EXISTS only helps brand-new databases;
+ * this file is what brings an already-running production DB up to date.)
+ */
+
+const db = require('./db');
+
+async function runMigrations() {
+  if (db._type !== 'postgres') return; // sql.js (dev) always starts from the current schema
+
+  const statements = [
+    `ALTER TABLE players ALTER COLUMN turns SET DEFAULT 200`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_days INTEGER DEFAULT 0`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_chains INTEGER DEFAULT 0`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_shield BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_last_date TEXT`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_reward_claimed BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_just_broke BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_just_shielded BOOLEAN DEFAULT FALSE`,
+  ];
+
+  for (const stmt of statements) {
+    try {
+      await db.exec(stmt);
+    } catch (err) {
+      console.error(`⚠️  Migration step failed (${stmt}):`, err.message);
+    }
+  }
+  console.log('🛠  DB migrations checked/applied.');
+}
+
+module.exports = { runMigrations };

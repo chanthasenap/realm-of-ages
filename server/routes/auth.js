@@ -5,7 +5,30 @@
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const db      = require('../db');
+const { todayStr, checkStreakContinuity, computeStreakReward } = require('../streakReward');
 const router  = express.Router();
+
+// Advances a player's login streak at most once per calendar day.
+// Safe to call on every login/session-restore — no-ops if already updated today.
+async function touchLoginStreak(player) {
+  const today = todayStr();
+  if (player.streak_last_date === today) return; // already handled today
+
+  const status = checkStreakContinuity(player.streak_last_date, player.streak_shield, today);
+  const broke = status === 'reset';
+  const usedShield = status === 'shield_used';
+  const newDays = broke ? 1 : (player.streak_days || 0) + 1;
+  const newChains = broke ? (player.streak_chains || 0) + 1 : (player.streak_chains || 0);
+  const reward = computeStreakReward(newDays, newChains);
+  const keepShield = usedShield ? reward.awardShield : (player.streak_shield || reward.awardShield);
+
+  await db.run(
+    `UPDATE players SET streak_days = ?, streak_chains = ?, streak_shield = ?, streak_last_date = ?,
+                        streak_reward_claimed = FALSE, streak_just_broke = ?, streak_just_shielded = ?
+     WHERE id = ?`,
+    [newDays, newChains, keepShield, today, broke, usedShield, player.id]
+  );
+}
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -30,7 +53,8 @@ router.post('/register', async (req, res) => {
     req.session.playerId   = result.lastID;
     req.session.playerName = name.trim();
     req.session.save();
-    res.json({ ok: true, id: result.lastID, name: name.trim() });
+    await touchLoginStreak({ id: result.lastID, streak_last_date: null, streak_shield: false, streak_days: 0, streak_chains: 0 });
+    res.json({ ok: true, id: result.lastID, name: name.trim(), email: email.toLowerCase().trim() });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Server error. Please try again.' });
@@ -55,6 +79,8 @@ router.post('/login', async (req, res) => {
 
     await db.run('UPDATE players SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [player.id]);
 
+    await touchLoginStreak(player);
+
     // Regenerate session to prevent session fixation
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: 'Session error.' });
@@ -64,6 +90,7 @@ router.post('/login', async (req, res) => {
         ok: true,
         id: player.id,
         name: player.name,
+        email: player.email,
         faction: player.faction,
         needsFaction: !player.faction,
       });
@@ -87,13 +114,14 @@ router.get('/me', async (req, res) => {
   if (!req.session.playerId) return res.status(401).json({ error: 'Not logged in.' });
   try {
     const p = await db.get(
-      'SELECT id, name, faction, turns, gold, mana, land, victories, defeats, power FROM players WHERE id = ?',
+      'SELECT id, name, email, faction, turns, gold, mana, land, victories, defeats, power, streak_days, streak_chains, streak_shield, streak_last_date FROM players WHERE id = ?',
       [req.session.playerId]
     );
     if (!p) {
       req.session.destroy();
       return res.status(401).json({ error: 'Session invalid.' });
     }
+    await touchLoginStreak(p); // covers a session left open across midnight
     res.json({ ok: true, player: p, needsFaction: !p.faction });
   } catch (err) {
     res.status(500).json({ error: 'Server error.' });
