@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { api } from '../api.js'
 import { FACTIONS } from '../data/factions.js'
-import { generateAuction, AUCTION_REFRESH_MS } from '../data/items.js'
+import { generateAuction, AUCTION_REFRESH_MS, AUCTION_POOL, CONSUMABLE_POOL, ARTIFACT_POOL } from '../data/items.js'
 import { generateMercListings, MERC_REFRESH_INTERVAL_MS, calcMercRefreshCost } from '../data/mercs.js'
 import { MOCK_GUILDS, SEED_INVITES, GUILD_CREATION_COST, GUILD_PERKS, MOCK_ACTIVITY_FEED, makeInitialMembers, makeInitialChat } from '../data/guilds.js'
 
@@ -25,6 +25,28 @@ const MOCK_PLAYERS = Array.from({length:500},(_,i)=>{
 // to care which kind of player object it's looking at.
 function normalizePlayer(p) {
   return p ? { ...p, _id: p.id ?? p._id } : p
+}
+
+// The server only stores {item_id, qty} plus a couple of denormalized
+// display fields per owned item — it's deliberately NOT the source of
+// truth for names/art/effects (see server/itemData.js). Merge each row
+// back onto the full definition here, once, so every screen that reads
+// gs.items (inventory, battle item picker, auction "already owned"
+// check) can keep using item.artType/effect/passive/etc. as if the
+// server had sent all of it.
+const ITEM_CATALOG_BY_ID = Object.fromEntries(
+  [...AUCTION_POOL, ...CONSUMABLE_POOL, ...ARTIFACT_POOL].map(i => [i.id, i])
+)
+function normalizeOwnedItem(row) {
+  const def = ITEM_CATALOG_BY_ID[row.item_id]
+  if (!def) {
+    // Unknown/legacy row (item removed from the catalog, or predates the
+    // item_id column) — fall back to whatever the row itself carries
+    // rather than dropping it silently.
+    return { id: row.item_id || `row${row.id}`, name: row.item_name || 'Unknown Item', rarity: row.item_rarity || 'Common', qty: row.qty || 1, rowId: row.id }
+  }
+  const itemCategory = def.effect ? 'consumable' : def.transferChance !== undefined ? 'artifact' : 'passive'
+  return { ...def, itemCategory, qty: row.qty || 1, rowId: row.id, acquiredAt: row.acquired_at }
 }
 
 export const useGameStore = create(
@@ -67,7 +89,8 @@ export const useGameStore = create(
             auctionItems = generateAuction(player.faction)
             auctionRefreshAt = Date.now() + AUCTION_REFRESH_MS
           }
-          set({ gameState: { ...data, auctionItems, auctionRefreshAt, log: data.log || get().gameState?.log || [], streak: data.streak || {days:0,chains:0,shield:false,lastDate:null} } })
+          const items = (data.items || []).map(normalizeOwnedItem)
+          set({ gameState: { ...data, items, auctionItems, auctionRefreshAt, log: data.log || get().gameState?.log || [], streak: data.streak || {days:0,chains:0,shield:false,lastDate:null} } })
         } catch(e) { console.error('fetchGameState failed:', e) }
       },
 

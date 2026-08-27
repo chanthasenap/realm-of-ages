@@ -1,0 +1,323 @@
+/**
+ * server/itemData.js
+ * Minimal, server-authoritative purchase catalog for the Auction House.
+ *
+ * The client (client/src/data/items.js) owns the full item definitions —
+ * flavor text, descriptions, art, passive/effect details — and already has
+ * them loaded for display. This file exists ONLY so the server never has
+ * to trust a client-supplied price: it mirrors just id -> price/qty/what-
+ * to-grant, generated directly from the client catalog so the two
+ * can't silently drift on the fields that actually matter for a
+ * transaction. Regenerate by hand if client/src/data/items.js changes
+ * prices, consumable charge counts, or instant-grant amounts.
+ *
+ * itemCategory:
+ *   'instant'    — one-time grant (land/gold/mana/turns), never stored
+ *   'consumable' — stored with a qty of battle-use charges
+ *   'artifact'   — stored, qty always 1, can be lost to raids client-side
+ *   'passive'    — stored, qty always 1, ongoing bonus while owned
+ */
+
+const ITEM_CATALOG = {
+  "scouts_map": {
+    "name": "Scout's Map",
+    "goldPrice": 200,
+    "manaPrice": 0,
+    "itemCategory": "instant",
+    "qty": 1,
+    "instant": {
+      "land": 25
+    }
+  },
+  "alchemists_draft": {
+    "name": "Alchemist's Draft",
+    "goldPrice": 300,
+    "manaPrice": 100,
+    "itemCategory": "instant",
+    "qty": 1,
+    "instant": {
+      "turns": 60
+    }
+  },
+  "war_rations": {
+    "name": "Iron War Rations",
+    "goldPrice": 250,
+    "manaPrice": 0,
+    "itemCategory": "instant",
+    "qty": 1,
+    "instant": {
+      "gold": 300,
+      "mana": 0
+    }
+  },
+  "iron_whetstone": {
+    "name": "Starmetal Whetstone",
+    "goldPrice": 520,
+    "manaPrice": 50,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "merchants_ledger": {
+    "name": "Merchant's Ledger",
+    "goldPrice": 560,
+    "manaPrice": 0,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "arcane_primer": {
+    "name": "Arcane Primer",
+    "goldPrice": 420,
+    "manaPrice": 150,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "war_standard": {
+    "name": "War Standard",
+    "goldPrice": 600,
+    "manaPrice": 80,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "tome_conquest": {
+    "name": "Tome of Conquest",
+    "goldPrice": 950,
+    "manaPrice": 200,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "cartographers_scroll": {
+    "name": "Grand Cartographer's Scroll",
+    "goldPrice": 720,
+    "manaPrice": 0,
+    "itemCategory": "instant",
+    "qty": 1,
+    "instant": {
+      "land": 70
+    }
+  },
+  "ring_hoarding": {
+    "name": "Ring of Hoarding",
+    "goldPrice": 1050,
+    "manaPrice": 100,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "arcane_condenser": {
+    "name": "Arcane Condenser",
+    "goldPrice": 880,
+    "manaPrice": 300,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "banner_iron": {
+    "name": "Banner of the Iron Legion",
+    "goldPrice": 1100,
+    "manaPrice": 150,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "warlords_talisman": {
+    "name": "Warlord's Talisman",
+    "goldPrice": 1650,
+    "manaPrice": 500,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "planeshifter": {
+    "name": "Planeshifter's Compass",
+    "goldPrice": 1450,
+    "manaPrice": 300,
+    "itemCategory": "instant",
+    "qty": 1,
+    "instant": {
+      "land": 150
+    }
+  },
+  "grimoire_command": {
+    "name": "Grimoire of Command",
+    "goldPrice": 1850,
+    "manaPrice": 600,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "siege_engine": {
+    "name": "Siege Engine Blueprint",
+    "goldPrice": 2050,
+    "manaPrice": 400,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "crown_dominion": {
+    "name": "Crown of Dominion",
+    "goldPrice": 3200,
+    "manaPrice": 1000,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "philosophers_stone": {
+    "name": "Philosopher's Stone",
+    "goldPrice": 2900,
+    "manaPrice": 800,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "mantle_archmage": {
+    "name": "Mantle of the Archmage",
+    "goldPrice": 2700,
+    "manaPrice": 1000,
+    "itemCategory": "passive",
+    "qty": 1,
+    "instant": null
+  },
+  "sharpening_stone": {
+    "name": "Sharpening Stone",
+    "goldPrice": 300,
+    "manaPrice": 0,
+    "itemCategory": "consumable",
+    "qty": 5,
+    "instant": null
+  },
+  "iron_shield_oil": {
+    "name": "Iron Shield Oil",
+    "goldPrice": 275,
+    "manaPrice": 0,
+    "itemCategory": "consumable",
+    "qty": 5,
+    "instant": null
+  },
+  "soldier_rations": {
+    "name": "Soldier's Rations",
+    "goldPrice": 240,
+    "manaPrice": 0,
+    "itemCategory": "consumable",
+    "qty": 5,
+    "instant": null
+  },
+  "battle_draught": {
+    "name": "Battle Draught",
+    "goldPrice": 560,
+    "manaPrice": 120,
+    "itemCategory": "consumable",
+    "qty": 3,
+    "instant": null
+  },
+  "tactical_scroll": {
+    "name": "Tactical Scroll",
+    "goldPrice": 630,
+    "manaPrice": 75,
+    "itemCategory": "consumable",
+    "qty": 3,
+    "instant": null
+  },
+  "vanguard_elixir": {
+    "name": "Vanguard Elixir",
+    "goldPrice": 510,
+    "manaPrice": 180,
+    "itemCategory": "consumable",
+    "qty": 3,
+    "instant": null
+  },
+  "cavalry_spurs": {
+    "name": "Enchanted Cavalry Spurs",
+    "goldPrice": 690,
+    "manaPrice": 90,
+    "itemCategory": "consumable",
+    "qty": 3,
+    "instant": null
+  },
+  "warcry_horn": {
+    "name": "Warcry Horn",
+    "goldPrice": 920,
+    "manaPrice": 180,
+    "itemCategory": "consumable",
+    "qty": 2,
+    "instant": null
+  },
+  "shadow_dust": {
+    "name": "Shadow Dust",
+    "goldPrice": 1020,
+    "manaPrice": 240,
+    "itemCategory": "consumable",
+    "qty": 2,
+    "instant": null
+  },
+  "berserker_brew": {
+    "name": "Berserker's Brew",
+    "goldPrice": 1100,
+    "manaPrice": 220,
+    "itemCategory": "consumable",
+    "qty": 2,
+    "instant": null
+  },
+  "generals_standard": {
+    "name": "General's Battle Standard",
+    "goldPrice": 1600,
+    "manaPrice": 400,
+    "itemCategory": "consumable",
+    "qty": 1,
+    "instant": null
+  },
+  "true_strike_scroll": {
+    "name": "Scroll of True Strike",
+    "goldPrice": 1800,
+    "manaPrice": 500,
+    "itemCategory": "consumable",
+    "qty": 1,
+    "instant": null
+  },
+  "bloodstone_amulet": {
+    "name": "Bloodstone Amulet",
+    "goldPrice": 1200,
+    "manaPrice": 250,
+    "itemCategory": "artifact",
+    "qty": 1,
+    "instant": null
+  },
+  "relic_crown": {
+    "name": "Relic Crown of the Fallen King",
+    "goldPrice": 2200,
+    "manaPrice": 600,
+    "itemCategory": "artifact",
+    "qty": 1,
+    "instant": null
+  },
+  "shard_of_eternity": {
+    "name": "Shard of Eternity",
+    "goldPrice": 2400,
+    "manaPrice": 700,
+    "itemCategory": "artifact",
+    "qty": 1,
+    "instant": null
+  },
+  "conquest_ring": {
+    "name": "Conquest Ring of Dominar",
+    "goldPrice": 3500,
+    "manaPrice": 1200,
+    "itemCategory": "artifact",
+    "qty": 1,
+    "instant": null
+  },
+  "warsouls_tome": {
+    "name": "Warsoul's Tome",
+    "goldPrice": 3800,
+    "manaPrice": 1400,
+    "itemCategory": "artifact",
+    "qty": 1,
+    "instant": null
+  }
+};
+
+module.exports = { ITEM_CATALOG };

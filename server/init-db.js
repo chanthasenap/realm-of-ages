@@ -54,9 +54,11 @@ const schema = `
   CREATE TABLE IF NOT EXISTS items (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id    INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    item_id      TEXT,
     item_name    TEXT    NOT NULL,
     item_icon    TEXT,
     item_rarity  TEXT    DEFAULT 'common',
+    qty          INTEGER DEFAULT 1,
     acquired_at  DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 

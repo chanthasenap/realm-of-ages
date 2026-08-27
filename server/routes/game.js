@@ -5,7 +5,8 @@
 
 const express    = require('express');
 const db         = require('../db');
-const { FACTIONS, AUCTION_ITEMS, calcPower, calcEconomy, calcCaravanReward } = require('../gameData');
+const { FACTIONS, calcPower, calcEconomy, calcCaravanReward } = require('../gameData');
+const { ITEM_CATALOG } = require('../itemData');
 const { todayStr, computeStreakReward } = require('../streakReward');
 const router     = express.Router();
 
@@ -356,10 +357,14 @@ router.post('/battle', async (req, res) => {
 });
 
 // ── POST /api/game/auction/buy ────────────────────────────────────
+// itemId comes from the client's own item catalog (client/src/data/items.js)
+// via generateAuction()'s random roll -- ITEM_CATALOG (server/itemData.js)
+// is the server's independent mirror of just the fields a purchase needs,
+// so price/qty/grants are never trusted from the request itself.
 router.post('/auction/buy', async (req, res) => {
   try {
     const { itemId } = req.body;
-    const item = AUCTION_ITEMS.find(i => i.id === itemId);
+    const item = ITEM_CATALOG[itemId];
     if (!item) return res.status(400).json({ error: 'Item not found.' });
 
     const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
@@ -370,12 +375,44 @@ router.post('/auction/buy', async (req, res) => {
       'UPDATE players SET gold = gold - ?, mana = mana - ? WHERE id = ?',
       [item.goldPrice, item.manaPrice, player.id]
     );
-    await db.run(
-      'INSERT INTO items (player_id, item_name, item_icon, item_rarity) VALUES (?, ?, ?, ?)',
-      [player.id, item.name, item.icon, item.rarity]
+
+    if (item.itemCategory === 'instant') {
+      // One-time grant (land/gold/mana/turns) -- applied immediately,
+      // never stored as an inventory row. Whitelist the columns a grant
+      // can touch since this builds a dynamic SET clause.
+      const GRANTABLE = ['land', 'gold', 'mana', 'turns'];
+      const sets = [], params = [];
+      for (const key of GRANTABLE) {
+        const amount = item.instant?.[key];
+        if (amount) { sets.push(`${key} = ${key} + ?`); params.push(amount); }
+      }
+      if (sets.length) {
+        params.push(player.id);
+        await db.run(`UPDATE players SET ${sets.join(', ')} WHERE id = ?`, params);
+      }
+      if (item.instant?.land) await updatePower(player.id);
+      await logEvent(player.id, `Purchased ${item.name} from the Auction House.`, 'auction');
+      return res.json({ ok: true, itemId, item: item.name, itemCategory: 'instant', instant: item.instant });
+    }
+
+    // Passive relic, artifact, or consumable -- stored as an inventory row.
+    // Consumables stack their charge count onto an existing row instead of
+    // creating a duplicate every purchase.
+    const existing = await db.get(
+      'SELECT id, qty FROM items WHERE player_id = ? AND item_id = ?',
+      [player.id, itemId]
     );
+    if (existing) {
+      await db.run('UPDATE items SET qty = qty + ? WHERE id = ?', [item.qty, existing.id]);
+    } else {
+      await db.run(
+        'INSERT INTO items (player_id, item_id, item_name, qty) VALUES (?, ?, ?, ?)',
+        [player.id, itemId, item.name, item.qty]
+      );
+    }
+
     await logEvent(player.id, `Purchased ${item.name} from the Auction House.`, 'auction');
-    res.json({ ok: true, item: item.name });
+    res.json({ ok: true, itemId, item: item.name, itemCategory: item.itemCategory, qty: item.qty });
   } catch (err) {
     console.error('Auction error:', err);
     res.status(500).json({ error: 'Purchase failed.' });

@@ -23,6 +23,13 @@ async function runMigrations() {
     `ALTER TABLE players ADD COLUMN IF NOT EXISTS streak_just_shielded BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE players ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE players ADD COLUMN IF NOT EXISTS bot_power_cap INTEGER`,
+    // The auction purchase route used to validate against a completely
+    // different (long-stale) item list than what the client actually
+    // offered, so every purchase failed with "Item not found" -- these
+    // columns let a row point at the real catalog entry (server/itemData.js)
+    // instead of only carrying denormalized display strings.
+    `ALTER TABLE items ADD COLUMN IF NOT EXISTS item_id TEXT`,
+    `ALTER TABLE items ADD COLUMN IF NOT EXISTS qty INTEGER DEFAULT 1`,
   ];
 
   for (const stmt of statements) {
