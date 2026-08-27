@@ -141,7 +141,7 @@ router.post('/streak/claim', async (req, res) => {
 router.post('/explore', async (req, res) => {
   try {
     const { type } = req.body;
-    const costs = { scout: 1, expedition: 3, conquest: 8 };
+    const costs = { scout: 1, caravan: 2, expedition: 3, conquest: 8 };
     const turnCost = costs[type];
     if (!turnCost) return res.status(400).json({ error: 'Invalid explore type.' });
 
@@ -149,8 +149,13 @@ router.post('/explore', async (req, res) => {
     if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
     if (player.turns < turnCost) return res.status(400).json({ error: `Not enough turns. Need ${turnCost}.` });
 
-    let acres, goldBonus, manaBonus = 0;
+    let acres = 0, goldBonus, manaBonus = 0;
     if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = 5; }
+    // Merchant Caravan trades purely for coin and mana -- no acres, but
+    // noticeably better gold-per-turn than the land-focused runs (players
+    // reported gold as the early-game bottleneck; this is the answer when
+    // you need liquidity and don't care about territory this turn).
+    if (type === 'caravan')    { goldBonus = 40; manaBonus = 10; }
     if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = 20; }
     if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = 60; manaBonus = 20; }
 
@@ -374,8 +379,16 @@ router.post('/auction/buy', async (req, res) => {
 // ── GET /api/game/rankings ────────────────────────────────────────
 router.get('/rankings', async (req, res) => {
   try {
+    // The client windows this list around the requesting player's own rank
+    // (Battle tab: +-100, Rankings tab: +-200) to decide who's attackable.
+    // With ~250 seeded bots plus real signups, a low-power player is
+    // rarely in a small top-N slice -- capping this too low silently
+    // dropped that player out of the response entirely, which collapsed
+    // the client-side window to nothing (blank Battle/Rankings tabs).
+    // 2000 comfortably covers the whole roster for the foreseeable
+    // future while still bounding the query.
     const rankings = await db.all(
-      'SELECT id, name, faction, power, land, victories, defeats FROM players ORDER BY power DESC LIMIT 50'
+      'SELECT id, name, faction, power, land, victories, defeats FROM players ORDER BY power DESC LIMIT 2000'
     );
     res.json({ ok: true, rankings, myId: req.session.playerId });
   } catch (err) {

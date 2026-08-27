@@ -226,8 +226,12 @@ export default function Game() {
       const res = await explore(cost)
       setExploreResult(res)
       const sub = `+${res.goldBonus}g bonus${res.manaBonus > 0 ? ` · +${res.manaBonus}m bonus` : ''}`
-      addLog({ cls: 'res', icon: 'explore', msg: `Claimed ${res.acres} acres`, subtext: sub })
-      showToast(`${res.acres} acres claimed`, sub, 'explore',
+      // Merchant Caravan runs trade for coin, not territory — "0 acres
+      // claimed" would read as a failure, so give resource-only runs
+      // their own headline instead of always talking about acres.
+      const headline = res.acres > 0 ? `Claimed ${res.acres} acres` : 'Caravan returned safely'
+      addLog({ cls: 'res', icon: 'explore', msg: headline, subtext: sub })
+      showToast(headline, sub, 'explore',
         <div style={{width:'100%',height:'100%',background:'rgba(109,204,170,.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><IconMap size={18} color="var(--green)"/></div>
       )
     } catch (e) {
@@ -1604,7 +1608,7 @@ export default function Game() {
 
     if (panel === 'explore') return (
       <div>
-        <div className={s.ph}><div className={s.ptitle}>Explore New Lands</div><div className={s.pdesc}>Spend turns to claim territory. Each expedition grants an immediate gold (and sometimes mana) bonus.</div></div>
+        <div className={s.ph}><div className={s.ptitle}>Explore New Lands</div><div className={s.pdesc}>Spend turns to claim territory, or send a caravan to trade for gold and mana instead.</div></div>
         <div className={s.resRow}>
           <Stat imageId="land"  folder="explore" icon={<IconMap/>}   label="Land"  value={land}                  sub={`${eco.freeLand} free`} subColor={eco.freeLand < 10 ? 'var(--red)' : 'var(--muted)'} />
           <Stat imageId="turns" folder="explore" icon={<IconClock/>} label="Turns" value={turns}                 sub={`+1 in ${mLeft}:${sLeft}`} color="var(--green)" />
@@ -1612,6 +1616,7 @@ export default function Game() {
         </div>
         <div className={s.ucardGrid}>
           <ExploreCard icon={<IconCompass size={52} color="var(--green)" opacity={0.65}/>}   heroBg="rgba(109,204,170,0.08)" fc="var(--green)" imageId="scout-party"    name="Scout Party"    turnCost={1} goldBonus={5}  manaBonus={0}  desc="Claim 5–15 acres with a light scouting force." blockMsg={turns < 1  ? `Need ${1  - turns} more turns` : null} onClick={() => doExplore(1)} disabled={turns < 1  || loading} />
+          <ExploreCard icon={<IconPigMoney size={52} color="var(--gold)" opacity={0.65}/>}    heroBg="rgba(201,168,76,0.1)"   fc="var(--gold)"  imageId="merchant-caravan" name="Merchant Caravan" turnCost={2} goldBonus={40} manaBonus={10} desc="Send a trade caravan to barter with wandering merchants. No territory gained, but a reliable haul of gold and mana." blockMsg={turns < 2  ? `Need ${2  - turns} more turns` : null} onClick={() => doExplore(2)} disabled={turns < 2  || loading} />
           <ExploreCard icon={<IconMapSearch size={52} color="var(--green)" opacity={0.65}/>} heroBg="rgba(109,204,170,0.13)" fc="var(--green)" imageId="expedition"      name="Expedition"     turnCost={3} goldBonus={20} manaBonus={0}  desc="Send a full expedition to claim 20–50 acres." blockMsg={turns < 3  ? `Need ${3  - turns} more turns` : null} onClick={() => doExplore(3)} disabled={turns < 3  || loading} />
           <ExploreCard icon={<IconWorld size={52}   color="var(--gold)"  opacity={0.65}/>}   heroBg="rgba(201,168,76,0.08)"  fc="var(--gold)"  imageId="grand-conquest" name="Grand Conquest" turnCost={8} goldBonus={60} manaBonus={20} desc="A major campaign claiming 80–150 acres with gold and mana spoils." blockMsg={turns < 8 ? `Need ${8 - turns} more turns` : null} onClick={() => doExplore(8)} disabled={turns < 8 || loading} />
         </div>
@@ -2205,7 +2210,7 @@ export default function Game() {
                 <div key={item.id} className={s.ucard} style={{ '--fc': rc, opacity: alreadyOwned ? 0.5 : 1 }}>
                   {/* Hero */}
                   <div className={s.ucardHero}>
-                    <ItemArt artType={item.artType} rarity={item.rarity} size={120} />
+                    <ItemArt id={item.id} artType={item.artType} rarity={item.rarity} size={120} />
                     <div className={s.ucardHeroOverlay} style={{background:'linear-gradient(to top, color-mix(in srgb, var(--bg3) 80%, black) 15%, color-mix(in srgb, var(--bg3) 45%, transparent) 38%, transparent 68%)'}} />
                     <div className={s.ucardTopRow}>
                       <span className={s.ucardTier} style={{background:rc+'22',color:rc,border:`1px solid ${rc}44`}}>{item.rarity}</span>
@@ -2996,7 +3001,7 @@ export default function Game() {
                             style={{ '--rc': rc }}
                             onClick={() => setBcItem(chosen ? '' : item.id)}>
                             <div className={s.bcItemTileIcon}>
-                              <ItemArt artType={item.artType} rarity={item.rarity} size={40} />
+                              <ItemArt id={item.id} artType={item.artType} rarity={item.rarity} size={40} />
                             </div>
                             <div className={s.bcItemTileBody}>
                               <div className={s.bcItemTileName} style={{ color: rc }}>{item.name}</div>
@@ -3020,7 +3025,7 @@ export default function Game() {
                     const rc = RARITY_COLOR[selectedItem.rarity] || 'var(--gold)'
                     return (
                       <div className={s.bcSummaryCard} style={{ '--rc': rc }}>
-                        <div className={s.bcSummaryIcon}><ItemArt artType={selectedItem.artType} rarity={selectedItem.rarity} size={32} /></div>
+                        <div className={s.bcSummaryIcon}><ItemArt id={selectedItem.id} artType={selectedItem.artType} rarity={selectedItem.rarity} size={32} /></div>
                         <div className={s.bcSummaryText}>
                           <div style={{ fontSize: 11, fontWeight: 600, color: rc }}>{selectedItem.name} equipped</div>
                           <div style={{ fontSize: 10, color: 'var(--muted)' }}>{selectedItem.effectLabel || selectedItem.passiveLabel}</div>
@@ -3466,7 +3471,7 @@ function BattleCard({ entry, defaultExpanded = false, compact = false }) {
               <div style={{flexShrink:0}}>
                 <div style={{fontSize:9,letterSpacing:2,textTransform:'uppercase',color:'var(--muted)',marginBottom:7}}>Item Used</div>
                 <div style={{display:'flex',alignItems:'center',gap:6,marginBottom: itemEffects.length ? 6 : 0}}>
-                  <ItemArt artType={item.artType} rarity={item.rarity} size={24}/>
+                  <ItemArt id={item.id} artType={item.artType} rarity={item.rarity} size={24}/>
                   <div>
                     <div style={{fontSize:10,color:'var(--text)',fontWeight:600}}>{item.name}</div>
                     <div style={{fontSize:8,color: consumed ? 'var(--red)' : 'var(--muted)',marginTop:1}}>

@@ -82,8 +82,29 @@ export function UnitPortrait({ unitId, artType, factionColor, size = 52 }) {
   )
 }
 
-export function ItemArt({ artType, rarity, size = 120 }) {
+/**
+ * Item art. Tries, in order:
+ *   1. /images/items/<id>.jpg       — bespoke art for this exact item
+ *   2. /images/items/<artType>.jpg  — shared art for the item's category
+ *      (scroll, tome, crown, potion, orb, ring, amulet, weapon, banner, rune)
+ * and only falls back to the procedural SVG glyph (tinted by rarity) if
+ * neither image exists yet. Most items can share one artType image; give
+ * an individual item its own <id>.jpg later (e.g. a legendary) without
+ * touching this component again.
+ */
+export function ItemArt({ id, artType, rarity, size = 120 }) {
+  const [stage, setStage] = useState(id ? 'item' : 'type')
   const accent = RARITY_COLOR[rarity] || '#9090a8'
+
+  const imgStyle = { width: size, height: size, objectFit: 'cover', borderRadius: Math.round(size * 0.12), display: 'block' }
+
+  if (stage === 'item') {
+    return <img src={`/images/items/${id}.jpg`} alt="" onError={() => setStage('type')} style={imgStyle} />
+  }
+  if (stage === 'type') {
+    return <img src={`/images/items/${artType}.jpg`} alt="" onError={() => setStage('svg')} style={imgStyle} />
+  }
+
   const svgHtml = ITEM_ART[artType]?.(accent) || ITEM_ART.rune(accent)
   return (
     <div

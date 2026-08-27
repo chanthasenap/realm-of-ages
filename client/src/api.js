@@ -30,7 +30,7 @@ export const api = {
   // Actions
   explore:  (turns) => {
     // Server keys explore actions by name, not turn cost — map cost -> type.
-    const type = turns === 1 ? 'scout' : turns === 3 ? 'expedition' : turns === 8 ? 'conquest' : null
+    const type = turns === 1 ? 'scout' : turns === 2 ? 'caravan' : turns === 3 ? 'expedition' : turns === 8 ? 'conquest' : null
     return req('POST', '/game/explore', { type })
   },
   build:    (buildingId) => req('POST', '/game/build', { buildingId }),
