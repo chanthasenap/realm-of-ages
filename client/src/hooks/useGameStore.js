@@ -49,6 +49,18 @@ function normalizeOwnedItem(row) {
   return { ...def, itemCategory, qty: row.qty || 1, rowId: row.id, acquiredAt: row.acquired_at }
 }
 
+// The server only stores {unit_id, merc_faction, quantity} for a hired
+// mercenary — the same "server sends the minimal authoritative row,
+// client merges in its own richer local catalog" pattern as items above.
+// A merc's unit definition lives in its ORIGIN faction's roster (it was
+// hired from a foreign faction), not the player's own.
+function normalizeMerc(row) {
+  const mercFaction = FACTIONS[row.factionId]
+  const uDef = mercFaction?.units?.find(u => u.id === row.unitId)
+  if (!uDef) return { id: row.unitId, unitId: row.unitId, factionId: row.factionId, name: row.unitId, quantity: row.quantity || 0 }
+  return { ...uDef, id: row.unitId, unitId: row.unitId, factionId: row.factionId, factionName: mercFaction.name, factionColor: mercFaction.color, quantity: row.quantity || 0 }
+}
+
 export const useGameStore = create(
   persist(
     (set, get) => ({
@@ -90,7 +102,8 @@ export const useGameStore = create(
             auctionRefreshAt = Date.now() + AUCTION_REFRESH_MS
           }
           const items = (data.items || []).map(normalizeOwnedItem)
-          set({ gameState: { ...data, items, auctionItems, auctionRefreshAt, log: data.log || get().gameState?.log || [], streak: data.streak || {days:0,chains:0,shield:false,lastDate:null} } })
+          const mercs = (data.mercs || []).map(normalizeMerc)
+          set({ gameState: { ...data, items, mercs, auctionItems, auctionRefreshAt, log: data.log || get().gameState?.log || [], streak: data.streak || {days:0,chains:0,shield:false,lastDate:null} } })
         } catch(e) { console.error('fetchGameState failed:', e) }
       },
 
@@ -165,12 +178,25 @@ export const useGameStore = create(
         set(s=>({mercListings:generateMercListings(p.faction),mercRefreshAt:Date.now()+MERC_REFRESH_INTERVAL_MS,gameState:{...s.gameState,gold:(s.gameState?.gold||0)-cost}}))
         return {success:true,cost}
       },
-      hireMerc: (id) => {
-        const l=get().mercListings.find(x=>x.id===id); const gs=get().gameState
-        if(!l) return {success:false,message:'Not found'}
-        if((gs?.gold||0)<l.totalCost) return {success:false,message:'Not enough gold'}
-        set(s=>({mercListings:s.mercListings.map(x=>x.id===id?{...x,hired:true}:x),gameState:{...s.gameState,gold:(s.gameState?.gold||0)-l.totalCost,army:{...s.gameState?.army,[l.unitId]:(s.gameState?.army?.[l.unitId]||0)+l.qty}}}))
-        return {success:true}
+      // Used to just mutate local gameState directly and never told the
+      // server anything -- so a hired merc looked like it joined your
+      // army for a moment, then silently vanished the next time
+      // fetchGameState() ran for ANY reason (it fully replaces gameState
+      // with the server's response, which had never heard of the hire).
+      // Now goes through a real endpoint that persists it.
+      hireMerc: async (id) => {
+        const l = get().mercListings.find(x => x.id === id)
+        const gs = get().gameState
+        if (!l) return { success: false, message: 'Not found' }
+        if ((gs?.gold || 0) < l.totalCost) return { success: false, message: 'Not enough gold' }
+        try {
+          const r = await api.hireMerc(l.unitId, l.factionId, l.qty, l.costPerUnit)
+          set(s => ({ mercListings: s.mercListings.map(x => x.id === id ? { ...x, hired: true } : x) }))
+          await get().fetchGameState()
+          return { success: true, reward: r }
+        } catch (e) {
+          return { success: false, message: e.message }
+        }
       },
 
       // Guild (mock)

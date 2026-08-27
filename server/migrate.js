@@ -30,6 +30,14 @@ async function runMigrations() {
     // instead of only carrying denormalized display strings.
     `ALTER TABLE items ADD COLUMN IF NOT EXISTS item_id TEXT`,
     `ALTER TABLE items ADD COLUMN IF NOT EXISTS qty INTEGER DEFAULT 1`,
+    // Mercenary hires (Merc Hall) used to be a purely client-side mock --
+    // never sent to the server at all -- so a hired merc looked like it
+    // joined your army for a moment and then silently vanished the next
+    // time game state was re-fetched from anywhere else. These columns
+    // let a real, persisted army row be flagged as a mercenary and record
+    // which (foreign) faction its unit definition and stats come from.
+    `ALTER TABLE army ADD COLUMN IF NOT EXISTS is_merc BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE army ADD COLUMN IF NOT EXISTS merc_faction TEXT`,
   ];
 
   for (const stmt of statements) {

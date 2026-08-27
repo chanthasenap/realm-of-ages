@@ -48,6 +48,8 @@ const schema = `
     player_id    INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
     unit_id      TEXT    NOT NULL,
     quantity     INTEGER DEFAULT 0,
+    is_merc      BOOLEAN DEFAULT FALSE,
+    merc_faction TEXT,
     UNIQUE(player_id, unit_id)
   );
 

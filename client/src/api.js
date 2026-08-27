@@ -46,6 +46,7 @@ export const api = {
   explore:  (type) => req('POST', '/game/explore', { type }),
   build:    (buildingId) => req('POST', '/game/build', { buildingId }),
   recruit:  (unitId, qty) => req('POST', '/game/recruit', { unitId, quantity: qty || 5 }),
+  hireMerc: (unitId, factionId, qty, costPerUnit) => req('POST', '/game/merc/hire', { unitId, factionId, quantity: qty, costPerUnit }),
   battle:   (targetId, units, itemId) => req('POST', '/game/battle', { targetId, units, itemId }),
 
   // Auction

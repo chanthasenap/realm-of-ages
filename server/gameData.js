@@ -1221,14 +1221,22 @@ const POWER_WEIGHTS = {
   buildingPerLevel: 50,
 };
 
+// Mercenaries carry no faction oath, so they fight under-strength compared
+// to a player's own faction units -- see server/routes/game.js '/merc/hire'.
+const MERC_UNBOUND_PENALTY = 0.85;
+
 function calcPower(player, buildings, army, factionId) {
   const faction = FACTIONS[factionId];
   if (!faction) return 0;
   let power = (player.land || 0) * POWER_WEIGHTS.land;
   buildings.forEach(b => { power += b.level * POWER_WEIGHTS.buildingPerLevel; });
   army.forEach(a => {
-    const unitDef = faction.units.find(u => u.id === a.unit_id);
-    if (unitDef) power += a.quantity * unitDef.power;
+    // A mercenary's unit_id belongs to whichever foreign faction it was
+    // hired from (a.merc_faction), not the player's own -- look it up
+    // there instead, and apply the reduced-strength penalty.
+    const lookupFaction = a.is_merc && a.merc_faction ? FACTIONS[a.merc_faction] : faction;
+    const unitDef = lookupFaction?.units.find(u => u.id === a.unit_id);
+    if (unitDef) power += a.quantity * unitDef.power * (a.is_merc ? MERC_UNBOUND_PENALTY : 1);
   });
   return Math.round(power);
 }
@@ -1345,5 +1353,6 @@ function calcResourceTierPreviews(player, buildings, army, factionId) {
 module.exports = {
   FACTIONS, AUCTION_ITEMS, POWER_WEIGHTS, calcPower, calcEconomy,
   RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews,
+  MERC_UNBOUND_PENALTY,
 };
 

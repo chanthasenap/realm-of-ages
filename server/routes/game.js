@@ -362,6 +362,78 @@ router.post('/recruit', async (req, res) => {
   }
 });
 
+// ── POST /api/game/merc/hire ────────────────────────────────────────
+// Mercenary listings (client/src/data/mercs.js generateMercListings) are
+// randomly rolled entirely client-side -- there's no server-held catalog
+// to validate a hire against the way ITEM_CATALOG backs the Auction House.
+// This route still does real, meaningful validation (the unit must really
+// exist in the named foreign faction's roster, quantity and price are
+// bounds-checked against generous ceilings, and the player's own gold
+// balance -- which IS server-authoritative -- caps the worst case of any
+// single hire) and, critically, actually PERSISTS the result: hiring a
+// merc used to be a purely client-side state mutation that vanished the
+// next time game state was re-fetched from anywhere else, which is why
+// hired mercs never showed up in the roster or a battle. A tighter fix
+// would move listing generation itself server-side; tracked as a
+// follow-up, not done here.
+const MERC_MAX_QTY        = 20;
+const MERC_MAX_COST_PER_UNIT = 50000;
+
+router.post('/merc/hire', async (req, res) => {
+  try {
+    const { unitId, factionId, quantity, costPerUnit } = req.body;
+    const qty  = Math.max(1, Math.min(MERC_MAX_QTY, parseInt(quantity) || 0));
+    const cost = Number(costPerUnit);
+
+    if (!unitId || !factionId) return res.status(400).json({ error: 'unitId and factionId required.' });
+    if (!(qty > 0)) return res.status(400).json({ error: 'Invalid quantity.' });
+    if (!(cost > 0) || !Number.isFinite(cost) || cost > MERC_MAX_COST_PER_UNIT) {
+      return res.status(400).json({ error: 'Invalid contract price.' });
+    }
+
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
+    if (factionId === player.faction) {
+      return res.status(400).json({ error: 'Mercenaries must come from a foreign faction.' });
+    }
+
+    const mercFaction = FACTIONS[factionId];
+    const uDef = mercFaction?.units.find(u => u.id === unitId);
+    if (!uDef) return res.status(400).json({ error: 'Invalid mercenary unit.' });
+
+    const totalCost = Math.round(cost * qty);
+    if (player.gold < totalCost) return res.status(400).json({ error: `Need ${totalCost} gold.` });
+
+    // Stack onto an existing contract for the exact same unit+origin
+    // faction rather than creating a duplicate row.
+    const existing = await db.get(
+      'SELECT quantity FROM army WHERE player_id = ? AND unit_id = ?',
+      [req.session.playerId, unitId]
+    );
+    if (existing) {
+      await db.run(
+        'UPDATE army SET quantity = quantity + ?, is_merc = TRUE, merc_faction = ? WHERE player_id = ? AND unit_id = ?',
+        [qty, factionId, req.session.playerId, unitId]
+      );
+    } else {
+      await db.run(
+        'INSERT INTO army (player_id, unit_id, quantity, is_merc, merc_faction) VALUES (?, ?, ?, TRUE, ?)',
+        [req.session.playerId, unitId, qty, factionId]
+      );
+    }
+
+    await db.run('UPDATE players SET gold = gold - ? WHERE id = ?', [totalCost, player.id]);
+    await updatePower(req.session.playerId);
+
+    const msg = `Hired ${qty}× ${uDef.name} mercenaries from the ${mercFaction.name}.`;
+    await logEvent(req.session.playerId, msg, 'recruit');
+    res.json({ ok: true, unit: unitId, unitName: uDef.name, quantity: qty, totalCost, message: msg });
+  } catch (err) {
+    console.error('Merc hire error:', err);
+    res.status(500).json({ error: 'Mercenary hire failed.' });
+  }
+});
+
 // ── POST /api/game/battle ─────────────────────────────────────────
 router.post('/battle', async (req, res) => {
   try {

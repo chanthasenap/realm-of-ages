@@ -334,10 +334,30 @@ export default function Game() {
     setLoading(false)
   }
 
+  const doHireMerc = async (listing) => {
+    if (loading) return
+    setLoading(true)
+    try {
+      const r = await hireMerc(listing.id)
+      if (r.success) {
+        addLog({ cls: 'res', icon: 'recruit', msg: `Hired ${listing.qty}× ${listing.unitName}`, subtext: `Mercenary contract signed with the ${listing.factionName}` })
+        showToast('Hired!', `${listing.qty}× ${listing.unitName} joins your army`, 'res', <FactionImage factionId={listing.factionId} size={36}/>)
+      } else {
+        addLog({ cls: 'err', icon: 'err', msg: r.message || 'Hire failed.' })
+        showToast('Failed', r.message, 'err')
+      }
+    } catch (e) {
+      addLog({ cls: 'err', icon: 'err', msg: 'Hire failed.' })
+      showToast('Failed', e.message, 'err')
+    }
+    setLoading(false)
+  }
+
   const openBattleConfig = (targetId) => {
     const f = FACTIONS[gs?.faction || player?.faction]
     const initUnits = {}
     f?.units?.forEach(u => { initUnits[u.id] = gs?.army?.[u.id] || 0 })
+    ;(gs?.mercs || []).forEach(m => { initUnits[m.unitId] = m.quantity || 0 })
     setBcUnits(initUnits)
     setBcItem('')
     setBcStep(1)
@@ -2205,11 +2225,7 @@ export default function Game() {
                         ? <div className={s.ucardBlocked}>Need {(listing.totalCost - gold).toLocaleString()}g more</div>
                         : <AnimBtn className={s.ucardBtn} variant="strike" style={{background:cc+'18',color:cc,border:`1px solid ${cc}44`}}
                             disabled={loading}
-                            onClick={() => {
-                              const r = hireMerc(listing.id)
-                              if (r.success) showToast('Hired!', `${listing.qty}× ${listing.unitName} joins your army`, 'res', <FactionImage factionId={listing.factionId} size={36}/>)
-                              else showToast('Failed', r.message, 'err')
-                            }}>
+                            onClick={() => doHireMerc(listing)}>
                             <AnimatedIcon><IconSwords size={12}/></AnimatedIcon> Hire Contract
                           </AnimBtn>
                     }
@@ -2767,6 +2783,7 @@ export default function Game() {
   }
 
   const armyEntries = f ? f.units.filter(u => (gs?.army?.[u.id] || 0) > 0) : []
+  const mercEntries  = (gs?.mercs || []).filter(m => (m.quantity || 0) > 0)
 
   return (
     <><div className={s.shell}>
@@ -2876,7 +2893,7 @@ export default function Game() {
             </button>
             <div className={`${s.rpCollapseBody} ${rpArmyOpen ? s.rpCollapseOpen : ''}`}>
               <div>
-                {armyEntries.length === 0
+                {armyEntries.length === 0 && mercEntries.length === 0
                   ? <div className={s.muted}>No units recruited yet.</div>
                   : <div className={s.rpArmyGrid}>
                       {armyEntries.map(u => (
@@ -2887,6 +2904,16 @@ export default function Game() {
                           </div>
                           <div className={s.rpArmyName}>{u.name}</div>
                           <div className={s.rpArmyCount}>{gs.army[u.id]}</div>
+                        </div>
+                      ))}
+                      {mercEntries.map(m => (
+                        <div key={`merc-${m.unitId}`} className={s.rpArmyCard} style={{'--fc': m.factionColor}} title={`Mercenary — hired from the ${m.factionName}, 85% power`}>
+                          <div className={s.rpArmyThumb}>
+                            <UnitPortrait unitId={m.unitId} artType={m.artType} factionColor={m.factionColor} size={72} />
+                            <div className={s.rpArmyOverlay} />
+                          </div>
+                          <div className={s.rpArmyName}>{m.name} <span style={{fontSize:8,color:'var(--muted)',fontWeight:400}}>(Merc)</span></div>
+                          <div className={s.rpArmyCount}>{m.quantity}</div>
                         </div>
                       ))}
                     </div>
@@ -3037,6 +3064,36 @@ export default function Game() {
                             />
                             <button className={s.bcQtyBtn} onClick={() => setBcUnits(p => ({ ...p, [u.id]: Math.min(owned, (p[u.id]||0) + Math.max(1, Math.floor(owned * 0.1))) }))}>+</button>
                             <button className={s.bcQtyMax} onClick={() => setBcUnits(p => ({ ...p, [u.id]: owned }))}>Max</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {(gs?.mercs || []).map(m => {
+                      const owned = m.quantity || 0
+                      if (!owned) return null
+                      const qty = bcUnits[m.unitId] || 0
+                      const pct = owned > 0 ? qty / owned : 0
+                      return (
+                        <div key={m.unitId} className={s.bcUnitCard}>
+                          <div className={s.bcUnitThumb}>
+                            <UnitPortrait unitId={m.unitId} artType={m.artType} factionColor={m.factionColor} size={44} />
+                          </div>
+                          <div className={s.bcUnitInfo}>
+                            <div className={s.bcUnitName}>{m.name} <span style={{fontSize:8,color:'var(--muted)',fontWeight:400}}>(Merc)</span></div>
+                            <div className={s.bcUnitBar}>
+                              <div className={s.bcUnitBarFill} style={{ width: `${pct * 100}%`, background: m.factionColor }} />
+                            </div>
+                            <div className={s.bcUnitOwned}>{qty.toLocaleString()} / {owned.toLocaleString()}</div>
+                          </div>
+                          <div className={s.bcUnitQty}>
+                            <button className={s.bcQtyBtn} onClick={() => setBcUnits(p => ({ ...p, [m.unitId]: Math.max(0, (p[m.unitId]||0) - Math.max(1, Math.floor((p[m.unitId]||0) * 0.1))) }))}>−</button>
+                            <input
+                              type="number" min={0} max={owned} value={qty}
+                              className={s.bcQtyInput}
+                              onChange={e => setBcUnits(p => ({ ...p, [m.unitId]: Math.max(0, Math.min(owned, parseInt(e.target.value) || 0)) }))}
+                            />
+                            <button className={s.bcQtyBtn} onClick={() => setBcUnits(p => ({ ...p, [m.unitId]: Math.min(owned, (p[m.unitId]||0) + Math.max(1, Math.floor(owned * 0.1))) }))}>+</button>
+                            <button className={s.bcQtyMax} onClick={() => setBcUnits(p => ({ ...p, [m.unitId]: owned }))}>Max</button>
                           </div>
                         </div>
                       )
