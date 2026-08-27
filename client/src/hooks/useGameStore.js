@@ -101,6 +101,18 @@ export const useGameStore = create(
         } catch { return MOCK_PLAYERS }
       },
 
+      // Dedicated battle-matchmaking feed (opponents closest to our own
+      // power) — see server/routes/game.js '/targets'. Unlike fetchRankings,
+      // this is never empty just because our rank falls outside a capped
+      // leaderboard slice, so the Battle tab uses this instead of deriving
+      // opponents from the rankings list.
+      fetchTargets: async () => {
+        try {
+          const res = await api.targets()
+          return (res.targets || []).map(p => ({ ...p, _id: p.id }))
+        } catch { return [] }
+      },
+
       addLog: (entry) => {
         const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
         set(s=>({gameState:{...s.gameState,log:[...(s.gameState?.log||[]),{...entry,ts,tsMs:Date.now()}].slice(-50)}}))

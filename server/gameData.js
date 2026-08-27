@@ -1255,4 +1255,34 @@ function calcEconomy(player, buildings, army, factionId) {
   return { goldGen, manaGen, goldUpkeep, manaUpkeep, goldNet: goldGen - goldUpkeep, manaNet: manaGen - manaUpkeep };
 }
 
-module.exports = { FACTIONS, AUCTION_ITEMS, POWER_WEIGHTS, calcPower, calcEconomy };
+// ── Merchant Caravan reward (see server/routes/game.js '/explore') ─────────
+// The caravan trades turns for gold/mana with no land, so its payout has to
+// track how developed the player already is -- flat numbers were either a
+// rounding error for a big economy or a dominant strategy for a small one.
+// Turns regenerate 1 every 2 minutes (see server/jobs.js), i.e. 30/hour, so
+// dividing the player's hourly net income by 30 gives their true per-turn
+// value; the caravan then pays out CARAVAN_INCOME_TURNS worth of that for a
+// cost of only CARAVAN_TURN_COST turns -- a real premium for spending turns
+// now instead of just letting the passive tick accrue them. Floors keep a
+// fresh, building-less player's first caravan run worth taking; caps keep a
+// maxed-out economy from turning it into the obviously-correct move every
+// time turns are free.
+const CARAVAN_TURN_COST   = 2;
+const CARAVAN_INCOME_TURNS = 3;   // payout = this many turns of current income
+const TURNS_PER_HOUR       = 30;  // 1 turn / 2 min, matches server/jobs.js
+const CARAVAN_MIN_GOLD = 15,  CARAVAN_MAX_GOLD = 500;
+const CARAVAN_MIN_MANA = 4,   CARAVAN_MAX_MANA = 150;
+
+function calcCaravanReward(player, buildings, army, factionId) {
+  const eco = calcEconomy(player, buildings, army, factionId);
+  const perTurnGold = Math.max(0, eco.goldNet) / TURNS_PER_HOUR;
+  const perTurnMana = Math.max(0, eco.manaNet) / TURNS_PER_HOUR;
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
+  return {
+    goldBonus: clamp(perTurnGold * CARAVAN_INCOME_TURNS, CARAVAN_MIN_GOLD, CARAVAN_MAX_GOLD),
+    manaBonus: clamp(perTurnMana * CARAVAN_INCOME_TURNS, CARAVAN_MIN_MANA, CARAVAN_MAX_MANA),
+    turnCost: CARAVAN_TURN_COST,
+  };
+}
+
+module.exports = { FACTIONS, AUCTION_ITEMS, POWER_WEIGHTS, calcPower, calcEconomy, calcCaravanReward };

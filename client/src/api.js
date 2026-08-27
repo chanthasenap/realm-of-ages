@@ -46,4 +46,5 @@ export const api = {
 
   // Rankings
   rankings: () => req('GET', '/game/rankings'),
+  targets:  () => req('GET', '/game/targets'),
 }

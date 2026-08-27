@@ -117,10 +117,12 @@ function calcCombatPower(faction, gs, unitSelection = null) {
 }
 
 export default function Game() {
-  const { player, gameState, fetchGameState, explore, build, recruit, battle, buyAuctionItem, refreshAuction, fetchRankings, logout, devRefillTurns, addLog, clearLog, guild, guildInvites, createGuild, searchGuilds, acceptInvite, declineInvite, leaveGuild, disbandGuild, sendGuildChat, depositTreasury, promoteMember, demoteMember, kickMember, transferOwnership, updateGuildSettings, invitePlayer, claimStreakReward, purchaseGuildPerk, setPinnedAnnouncement, setGuildGuidelines, mercListings, mercRefreshAt, initMercListings, refreshMercListings, hireMerc } = useGameStore()
+  const { player, gameState, fetchGameState, explore, build, recruit, battle, buyAuctionItem, refreshAuction, fetchRankings, fetchTargets, logout, devRefillTurns, addLog, clearLog, guild, guildInvites, createGuild, searchGuilds, acceptInvite, declineInvite, leaveGuild, disbandGuild, sendGuildChat, depositTreasury, promoteMember, demoteMember, kickMember, transferOwnership, updateGuildSettings, invitePlayer, claimStreakReward, purchaseGuildPerk, setPinnedAnnouncement, setGuildGuidelines, mercListings, mercRefreshAt, initMercListings, refreshMercListings, hireMerc } = useGameStore()
   const nav = useNavigate()
   const [panel, setPanel]         = useState('overview')
   const [rankings, setRankings]   = useState([])
+  const [targets, setTargets]     = useState([])
+  const [targetsLoaded, setTargetsLoaded] = useState(false)
   const [rkPage, setRkPage]       = useState(0)
   const [rkPageSize, setRkPageSize] = useState(50)
   const [btPage, setBtPage]       = useState(0)
@@ -1477,8 +1479,11 @@ export default function Game() {
   const guildChatRef = useRef(null)
 
   const loadRankings = async (pageSize = rkPageSize) => {
-    const data = await fetchRankings()
+    const [data, targetsData] = await Promise.all([fetchRankings(), fetchTargets()])
     setRankings(data)
+    setTargets(targetsData)
+    setTargetsLoaded(true)
+
     const sorted = [...data].sort((a,b)=>(b.power||0)-(a.power||0))
     const myAbsIdx = sorted.findIndex(r => r._id === player?._id)
     if (myAbsIdx >= 0) {
@@ -1486,16 +1491,19 @@ export default function Game() {
       const posInWindow = myAbsIdx - winStart
       setRkPage(Math.floor(posInWindow / pageSize))
       setScrollToMe(true)
-      // Battle table: opponents only (exclude me), find my neighbour position
-      const opponents = sorted.filter(r => r._id !== player?._id)
-      const btWinStart = Math.max(0, myAbsIdx - 200)
-      const btWinEnd   = Math.min(sorted.length, myAbsIdx + 201)
-      const btWindowed = sorted.slice(btWinStart, btWinEnd).filter(r => r._id !== player?._id)
-      const nearestIdx = btWindowed.findIndex(r => (r.power||0) <= (sorted[myAbsIdx].power||0))
-      const anchor = nearestIdx >= 0 ? nearestIdx : Math.floor(btWindowed.length / 2)
-      setBtPage(Math.floor(anchor / btPageSize))
-      setScrollToBt(true)
     }
+
+    // Battle table draws from the dedicated proximity feed (fetchTargets),
+    // which is centered on our own power by construction — so "my
+    // neighbour position" just means where our power sits among the
+    // opponents actually returned, no dependency on finding ourselves in
+    // the (possibly capped) rankings list.
+    const btSorted = [...targetsData].sort((a,b)=>(b.power||0)-(a.power||0))
+    const myPower  = player?.power || 0
+    const anchorIdx = btSorted.findIndex(r => (r.power||0) <= myPower)
+    const anchor    = anchorIdx >= 0 ? anchorIdx : Math.floor(btSorted.length / 2)
+    setBtPage(Math.floor(anchor / btPageSize))
+    setScrollToBt(true)
   }
 
   useEffect(() => {
@@ -1616,7 +1624,7 @@ export default function Game() {
         </div>
         <div className={s.ucardGrid}>
           <ExploreCard icon={<IconCompass size={52} color="var(--green)" opacity={0.65}/>}   heroBg="rgba(109,204,170,0.08)" fc="var(--green)" imageId="scout-party"    name="Scout Party"    turnCost={1} goldBonus={5}  manaBonus={0}  desc="Claim 5–15 acres with a light scouting force." blockMsg={turns < 1  ? `Need ${1  - turns} more turns` : null} onClick={() => doExplore(1)} disabled={turns < 1  || loading} />
-          <ExploreCard icon={<IconPigMoney size={52} color="var(--gold)" opacity={0.65}/>}    heroBg="rgba(201,168,76,0.1)"   fc="var(--gold)"  imageId="merchant-caravan" name="Merchant Caravan" turnCost={2} goldBonus={40} manaBonus={10} desc="Send a trade caravan to barter with wandering merchants. No territory gained, but a reliable haul of gold and mana." blockMsg={turns < 2  ? `Need ${2  - turns} more turns` : null} onClick={() => doExplore(2)} disabled={turns < 2  || loading} />
+          <ExploreCard icon={<IconPigMoney size={52} color="var(--gold)" opacity={0.65}/>}    heroBg="rgba(201,168,76,0.1)"   fc="var(--gold)"  imageId="merchant-caravan" name="Merchant Caravan" turnCost={2} goldBonus={gs?.caravan?.goldBonus ?? 15} manaBonus={gs?.caravan?.manaBonus ?? 4} desc="Send a trade caravan to barter with wandering merchants. No territory gained — the haul scales with your own income, so it stays worth it early and never outpaces building an economy." blockMsg={turns < 2  ? `Need ${2  - turns} more turns` : null} onClick={() => doExplore(2)} disabled={turns < 2  || loading} />
           <ExploreCard icon={<IconMapSearch size={52} color="var(--green)" opacity={0.65}/>} heroBg="rgba(109,204,170,0.13)" fc="var(--green)" imageId="expedition"      name="Expedition"     turnCost={3} goldBonus={20} manaBonus={0}  desc="Send a full expedition to claim 20–50 acres." blockMsg={turns < 3  ? `Need ${3  - turns} more turns` : null} onClick={() => doExplore(3)} disabled={turns < 3  || loading} />
           <ExploreCard icon={<IconWorld size={52}   color="var(--gold)"  opacity={0.65}/>}   heroBg="rgba(201,168,76,0.08)"  fc="var(--gold)"  imageId="grand-conquest" name="Grand Conquest" turnCost={8} goldBonus={60} manaBonus={20} desc="A major campaign claiming 80–150 acres with gold and mana spoils." blockMsg={turns < 8 ? `Need ${8 - turns} more turns` : null} onClick={() => doExplore(8)} disabled={turns < 8 || loading} />
         </div>
@@ -1886,25 +1894,23 @@ export default function Game() {
     }
 
     if (panel === 'battle') {
-      const btSorted  = [...rankings].sort((a,b)=>(b.power||0)-(a.power||0))
-      const absIdxMap = new Map(btSorted.map((r, i) => [r._id, i]))
-      const myAbsRank = absIdxMap.get(player?._id) ?? -1
-      // only include opponents within ±100 ranks — all rows are raidable
-      // Leaderboard filler (isMock) pads out a young world so the board
-      // doesn't look empty, but there's no real account behind it to
-      // attack — the server would just reject the battle. Keep it out
-      // of the actually-raidable list.
-      const btEligible = myAbsRank >= 0
-        ? btSorted.filter(r => r._id !== player?._id && !r.isMock && Math.abs(absIdxMap.get(r._id) - myAbsRank) <= 100)
-        : []
+      // Global rank numbers (and medal coloring) still come from the full
+      // rankings list, so "#1/#2/#3" means what it says — but WHO shows up
+      // to fight comes from a dedicated proximity feed (fetchTargets) that
+      // always returns real, attackable opponents closest to our own
+      // power, regardless of whether our own rank happens to fall inside
+      // the (size-capped) rankings list.
+      const rankAbsIdxMap = new Map([...rankings].sort((a,b)=>(b.power||0)-(a.power||0)).map((r, i) => [r._id, i]))
+      const myPower       = player?.power || 0
+      const btEligible     = [...targets].sort((a,b)=>(b.power||0)-(a.power||0))
       const btTotalPages  = Math.ceil(btEligible.length / btPageSize)
       const safeBtPage    = Math.min(btPage, Math.max(0, btTotalPages - 1))
       const btPageRows    = btEligible.slice(safeBtPage * btPageSize, (safeBtPage + 1) * btPageSize)
       const medalColors   = ['#ffd700','#c0c0c0','#cd7f32']
       // anchor scroll ref to the first row at-or-below player's power
-      const nearestInPage = btPageRows.find(r => (r.power||0) <= (btSorted[myAbsRank]?.power||0)) || btPageRows[0]
+      const nearestInPage = btPageRows.find(r => (r.power||0) <= myPower) || btPageRows[0]
       const btMyPageInWindow = (() => {
-        const anchor = btEligible.findIndex(r => (r.power||0) <= (btSorted[myAbsRank]?.power||0))
+        const anchor = btEligible.findIndex(r => (r.power||0) <= myPower)
         return Math.floor(Math.max(0, anchor) / btPageSize)
       })()
       const battleEntries = [...log].reverse().filter(l => l.type === 'battle')
@@ -1914,24 +1920,28 @@ export default function Game() {
           <div className={s.btTableSection}>
             <div className={s.ph} style={{marginBottom:8}}>
               <div className={s.ptitle}>Raid &amp; Battle</div>
-              <div className={s.pdesc}>Attack rivals within ±100 ranks to plunder their treasury. Costs 3 turns.</div>
+              <div className={s.pdesc}>Attack the opponents closest to your power to plunder their treasury. Costs 3 turns.</div>
             </div>
-            {rankings.length === 0 && <div className={s.muted}>Loading opponents…</div>}
+            {!targetsLoaded && <div className={s.muted} role="status">Loading opponents…</div>}
+            {targetsLoaded && btEligible.length === 0 && (
+              <div className={s.muted} role="status">No opponents available right now — check back in a moment.</div>
+            )}
             <div className={s.rkStickyTop}>
               <div className={s.rkPsz}>
                 Rows:
                 {[25,50,100].map(n => (
                   <button key={n} className={`${s.rkPszBtn} ${btPageSize===n ? s.rkPszActive : ''}`}
+                    aria-pressed={btPageSize===n} aria-label={`Show ${n} rows per page`}
                     onClick={() => { setBtPageSize(n); setBtPage(0) }}>{n}</button>
                 ))}
               </div>
               <button className={s.rkJumpBtn} onClick={() => { setBtPage(btMyPageInWindow); setScrollToBt(true) }}>↡ My rank</button>
               <div className={s.rkNav}>
-                <button className={s.rkNavBtn} disabled={safeBtPage===0} onClick={() => setBtPage(0)}>«</button>
-                <button className={s.rkNavBtn} disabled={safeBtPage===0} onClick={() => setBtPage(p=>Math.max(0,p-1))}>‹</button>
-                <span className={s.rkPageInfo}>Page {safeBtPage+1} / {btTotalPages}</span>
-                <button className={s.rkNavBtn} disabled={safeBtPage>=btTotalPages-1} onClick={() => setBtPage(p=>p+1)}>›</button>
-                <button className={s.rkNavBtn} disabled={safeBtPage>=btTotalPages-1} onClick={() => setBtPage(btTotalPages-1)}>»</button>
+                <button className={s.rkNavBtn} aria-label="First page" disabled={safeBtPage===0} onClick={() => setBtPage(0)}>«</button>
+                <button className={s.rkNavBtn} aria-label="Previous page" disabled={safeBtPage===0} onClick={() => setBtPage(p=>Math.max(0,p-1))}>‹</button>
+                <span className={s.rkPageInfo} aria-live="polite">Page {safeBtPage+1} / {btTotalPages}</span>
+                <button className={s.rkNavBtn} aria-label="Next page" disabled={safeBtPage>=btTotalPages-1} onClick={() => setBtPage(p=>p+1)}>›</button>
+                <button className={s.rkNavBtn} aria-label="Last page" disabled={safeBtPage>=btTotalPages-1} onClick={() => setBtPage(btTotalPages-1)}>»</button>
               </div>
             </div>
             <div className={s.rkScroll} ref={btScrollRef}>
@@ -1945,7 +1955,7 @@ export default function Game() {
               </div>
               <div className={s.rklist}>
                 {btPageRows.map(r => {
-                  const absIdx  = absIdxMap.get(r._id)
+                  const absIdx  = rankAbsIdxMap.get(r._id)
                   const rf      = FACTIONS[r.faction] || { color: 'var(--muted)', name: 'Unknown' }
                   const myPow   = calcCombatPower(player?.faction, gs)
                   const tPow    = r.power || 1
@@ -1954,7 +1964,7 @@ export default function Game() {
                   const favored = rowPct >= 50
                   return (
                     <div key={r._id} ref={r === nearestInPage ? btMyRowRef : null} className={s.rkrow}>
-                      <div className={s.rknum} style={{ color: medalColors[absIdx] || 'var(--muted)' }}>{absIdx + 1}</div>
+                      <div className={s.rknum} style={{ color: medalColors[absIdx] || 'var(--muted)' }}>{Number.isInteger(absIdx) ? absIdx + 1 : '—'}</div>
                       <div className={s.rkFactionCol}><FactionImage factionId={r.faction} size={28} /></div>
                       <div className={s.rkInfo}>
                         <div className={s.rkname}>{r.name}</div>
@@ -2287,6 +2297,7 @@ export default function Game() {
               Rows:
               {[25,50,100].map(n => (
                 <button key={n} className={`${s.rkPszBtn} ${rkPageSize===n ? s.rkPszActive : ''}`}
+                  aria-pressed={rkPageSize===n} aria-label={`Show ${n} rows per page`}
                   onClick={() => {
                     setRkPageSize(n)
                     if (myAbsRank >= 0) {
@@ -2298,11 +2309,11 @@ export default function Game() {
             </div>
             <button className={s.rkJumpBtn} onClick={() => { setRkPage(myPageInWindow); setScrollToMe(true) }}>↡ My rank</button>
             <div className={s.rkNav}>
-              <button className={s.rkNavBtn} disabled={rkPage===0} onClick={() => setRkPage(0)}>«</button>
-              <button className={s.rkNavBtn} disabled={rkPage===0} onClick={() => setRkPage(p=>p-1)}>‹</button>
-              <span className={s.rkPageInfo}>Page {rkPage+1} / {totalPages}</span>
-              <button className={s.rkNavBtn} disabled={rkPage>=totalPages-1} onClick={() => setRkPage(p=>p+1)}>›</button>
-              <button className={s.rkNavBtn} disabled={rkPage>=totalPages-1} onClick={() => setRkPage(totalPages-1)}>»</button>
+              <button className={s.rkNavBtn} aria-label="First page" disabled={rkPage===0} onClick={() => setRkPage(0)}>«</button>
+              <button className={s.rkNavBtn} aria-label="Previous page" disabled={rkPage===0} onClick={() => setRkPage(p=>p-1)}>‹</button>
+              <span className={s.rkPageInfo} aria-live="polite">Page {rkPage+1} / {totalPages}</span>
+              <button className={s.rkNavBtn} aria-label="Next page" disabled={rkPage>=totalPages-1} onClick={() => setRkPage(p=>p+1)}>›</button>
+              <button className={s.rkNavBtn} aria-label="Last page" disabled={rkPage>=totalPages-1} onClick={() => setRkPage(totalPages-1)}>»</button>
             </div>
           </div>
           <div className={s.rkScroll} ref={rkScrollRef}>
@@ -2354,11 +2365,11 @@ export default function Game() {
           </div>
           <div className={s.rkStickyBot}>
             <div className={s.rkNav}>
-              <button className={s.rkNavBtn} disabled={rkPage===0} onClick={() => setRkPage(0)}>«</button>
-              <button className={s.rkNavBtn} disabled={rkPage===0} onClick={() => setRkPage(p=>p-1)}>‹</button>
-              <span className={s.rkPageInfo}>Page {rkPage+1} / {totalPages} · {windowed.length} players</span>
-              <button className={s.rkNavBtn} disabled={rkPage>=totalPages-1} onClick={() => setRkPage(p=>p+1)}>›</button>
-              <button className={s.rkNavBtn} disabled={rkPage>=totalPages-1} onClick={() => setRkPage(totalPages-1)}>»</button>
+              <button className={s.rkNavBtn} aria-label="First page" disabled={rkPage===0} onClick={() => setRkPage(0)}>«</button>
+              <button className={s.rkNavBtn} aria-label="Previous page" disabled={rkPage===0} onClick={() => setRkPage(p=>p-1)}>‹</button>
+              <span className={s.rkPageInfo} aria-live="polite">Page {rkPage+1} / {totalPages} · {windowed.length} players</span>
+              <button className={s.rkNavBtn} aria-label="Next page" disabled={rkPage>=totalPages-1} onClick={() => setRkPage(p=>p+1)}>›</button>
+              <button className={s.rkNavBtn} aria-label="Last page" disabled={rkPage>=totalPages-1} onClick={() => setRkPage(totalPages-1)}>»</button>
             </div>
           </div>
         </div>
@@ -2847,7 +2858,10 @@ export default function Game() {
     </div>
     {/* ── Battle Wizard ── */}
     {battleConfig && (() => {
-      const target      = rankings.find(r => r._id === battleConfig.targetId) || { name: 'Unknown', power: 500, faction: 'flame' }
+      // The Battle tab's rows now come from the proximity-matched targets
+      // feed rather than the (size-capped) rankings list, so check both —
+      // whichever one actually has this opponent.
+      const target      = rankings.find(r => r._id === battleConfig.targetId) || targets.find(r => r._id === battleConfig.targetId) || { name: 'Unknown', power: 500, faction: 'flame' }
       const tf          = FACTIONS[target.faction] || { color: 'var(--red)' }
       const usableItems = Object.values(
         (gs?.items || [])

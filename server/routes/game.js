@@ -5,7 +5,7 @@
 
 const express    = require('express');
 const db         = require('../db');
-const { FACTIONS, AUCTION_ITEMS, calcPower, calcEconomy } = require('../gameData');
+const { FACTIONS, AUCTION_ITEMS, calcPower, calcEconomy, calcCaravanReward } = require('../gameData');
 const { todayStr, computeStreakReward } = require('../streakReward');
 const router     = express.Router();
 
@@ -25,6 +25,7 @@ async function getFullState(playerId) {
   const events        = await db.all('SELECT * FROM event_log WHERE player_id = ? ORDER BY occurred_at DESC LIMIT 30', [playerId]);
   const power         = calcPower(player, buildingRows, armyRows, player.faction);
   const economy       = calcEconomy(player, buildingRows, armyRows, player.faction);
+  const caravan       = calcCaravanReward(player, buildingRows, armyRows, player.faction);
 
   // The frontend expects buildings/army as { id: value } maps, not raw DB rows —
   // calcPower/calcEconomy above need the row arrays, so convert only for the response.
@@ -46,7 +47,7 @@ async function getFullState(playerId) {
     justUsedShield: !!player.streak_just_shielded,
   };
 
-  return { player: playerSafe, ...playerSafe, buildings, army, items, events, power, economy, streak };
+  return { player: playerSafe, ...playerSafe, buildings, army, items, events, power, economy, caravan, streak };
 }
 
 async function logEvent(playerId, message, category = 'info') {
@@ -151,11 +152,16 @@ router.post('/explore', async (req, res) => {
 
     let acres = 0, goldBonus, manaBonus = 0;
     if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = 5; }
-    // Merchant Caravan trades purely for coin and mana -- no acres, but
-    // noticeably better gold-per-turn than the land-focused runs (players
-    // reported gold as the early-game bottleneck; this is the answer when
-    // you need liquidity and don't care about territory this turn).
-    if (type === 'caravan')    { goldBonus = 40; manaBonus = 10; }
+    // Merchant Caravan trades purely for coin and mana -- no acres. Its
+    // payout scales with the player's own current income (see
+    // calcCaravanReward) rather than a flat number, so it stays worth
+    // taking for a new economy without becoming the obviously-correct
+    // move for a developed one.
+    if (type === 'caravan') {
+      const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [player.id]);
+      const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [player.id]);
+      ({ goldBonus, manaBonus } = calcCaravanReward(player, buildings, army, player.faction));
+    }
     if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = 20; }
     if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = 60; manaBonus = 20; }
 
@@ -397,14 +403,32 @@ router.get('/rankings', async (req, res) => {
 });
 
 // ── GET /api/game/targets ─────────────────────────────────────────
+// Dedicated battle-matchmaking feed: opponents closest to the requesting
+// player's own power, regardless of where their overall rank falls. The
+// Rankings tab's /rankings list is capped for payload size, so a
+// low-power (or, at the other extreme, a #1-ranked) player isn't always
+// present in it -- this route never has that problem, since "closest to
+// me" is well-defined even when "my position in a capped top-N" isn't.
 router.get('/targets', async (req, res) => {
   try {
+    const me = await db.get('SELECT power FROM players WHERE id = ?', [req.session.playerId]);
+    const myPower = me?.power || 0;
+
     const targets = await db.all(
-      'SELECT id, name, faction, power, land FROM players WHERE id != ? ORDER BY power DESC LIMIT 20',
-      [req.session.playerId]
+      `SELECT id, name, faction, power, land, victories, defeats
+         FROM players
+        WHERE id != ?
+        ORDER BY ABS(power - ?) ASC
+        LIMIT 200`,
+      [req.session.playerId, myPower]
     );
-    res.json({ ok: true, targets });
+    // Selected by proximity, but the table reads like a leaderboard slice,
+    // so re-sort for display after the proximity cut has been made.
+    targets.sort((a, b) => (b.power || 0) - (a.power || 0));
+
+    res.json({ ok: true, targets, myPower });
   } catch (err) {
+    console.error('Targets error:', err);
     res.status(500).json({ error: 'Could not load targets.' });
   }
 });
