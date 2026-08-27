@@ -1632,18 +1632,24 @@ export default function Game() {
           <Stat imageId="gold"  folder="explore" icon={<IconCoin/>}  label="Gold"  value={gold.toLocaleString()} color="var(--gold)" />
         </div>
 
-        <div className={s.sectionLabel} style={{marginTop:2}}>Territory — claim acres</div>
-        <div className={s.ucardGrid}>
-          <ExploreCard icon={<IconCompass size={52} color="var(--green)" opacity={0.65}/>}   heroBg="rgba(109,204,170,0.08)" fc="var(--green)" imageId="scout-party"    name="Scout Party"    turnCost={1} goldBonus={5}  manaBonus={0}  desc="Claim 5–15 acres with a light scouting force." blockMsg={turns < 1  ? `Need ${1  - turns} more turns` : null} onClick={() => doExplore('scout', 'Scout Party')} disabled={turns < 1  || loading} />
-          <ExploreCard icon={<IconMapSearch size={52} color="var(--green)" opacity={0.65}/>} heroBg="rgba(109,204,170,0.13)" fc="var(--green)" imageId="expedition"      name="Expedition"     turnCost={3} goldBonus={20} manaBonus={0}  desc="Send a full expedition to claim 20–50 acres." blockMsg={turns < 3  ? `Need ${3  - turns} more turns` : null} onClick={() => doExplore('expedition', 'Expedition')} disabled={turns < 3  || loading} />
-          <ExploreCard icon={<IconWorld size={52}   color="var(--gold)"  opacity={0.65}/>}   heroBg="rgba(201,168,76,0.08)"  fc="var(--gold)"  imageId="grand-conquest" name="Grand Conquest" turnCost={8} goldBonus={60} manaBonus={20} desc="A major campaign claiming 80–150 acres with gold and mana spoils." blockMsg={turns < 8 ? `Need ${8 - turns} more turns` : null} onClick={() => doExplore('conquest', 'Grand Conquest')} disabled={turns < 8 || loading} />
-        </div>
+        <div className={s.exploreCategoryRow}>
+          <div>
+            <div className={s.sectionLabel} style={{marginTop:2}}>Territory — claim acres</div>
+            <div className={s.ucardGrid}>
+              <ExploreCard icon={<IconCompass size={52} color="var(--green)" opacity={0.65}/>}   heroBg="rgba(109,204,170,0.08)" fc="var(--green)" imageId="scout-party"    name="Scout Party"    turnCost={1} goldBonus={5}  manaBonus={0}  desc="Claim 5–15 acres with a light scouting force." blockMsg={turns < 1  ? `Need ${1  - turns} more turns` : null} onClick={() => doExplore('scout', 'Scout Party')} disabled={turns < 1  || loading} />
+              <ExploreCard icon={<IconMapSearch size={52} color="var(--green)" opacity={0.65}/>} heroBg="rgba(109,204,170,0.13)" fc="var(--green)" imageId="expedition"      name="Expedition"     turnCost={3} goldBonus={20} manaBonus={0}  desc="Send a full expedition to claim 20–50 acres." blockMsg={turns < 3  ? `Need ${3  - turns} more turns` : null} onClick={() => doExplore('expedition', 'Expedition')} disabled={turns < 3  || loading} />
+              <ExploreCard icon={<IconWorld size={52}   color="var(--gold)"  opacity={0.65}/>}   heroBg="rgba(201,168,76,0.08)"  fc="var(--gold)"  imageId="grand-conquest" name="Grand Conquest" turnCost={8} goldBonus={60} manaBonus={20} desc="A major campaign claiming 80–150 acres with gold and mana spoils." blockMsg={turns < 8 ? `Need ${8 - turns} more turns` : null} onClick={() => doExplore('conquest', 'Grand Conquest')} disabled={turns < 8 || loading} />
+            </div>
+          </div>
 
-        <div className={s.sectionLabel} style={{marginTop:20}}>Fortune — gold &amp; mana, no acres</div>
-        <div className={s.ucardGrid}>
-          <ResourceExploreCard tierKey="peddler"  icon={<IconBackpack size={52} color="var(--green)" opacity={0.65}/>} fc="var(--green)" imageId="peddlers-cart"   name="Peddler's Cart"   turnCost={1} preview={gs?.resourceTiers?.peddler}  desc="A quick, low-risk trade run — small but reliable gold and mana, with a rare chance of a stray item." onClick={() => doExplore('peddler', "Peddler's Cart")} disabled={turns < 1 || loading} blockMsg={turns < 1 ? `Need ${1 - turns} more turns` : null} />
-          <ResourceExploreCard tierKey="smuggler" icon={<IconTruck size={52}    color="var(--gold)"  opacity={0.65}/>} fc="var(--gold)"  imageId="smugglers-route" name="Smuggler's Route" turnCost={3} preview={gs?.resourceTiers?.smuggler} desc="A riskier back-road run through bandit country — bigger hauls, and better odds of turning up a usable item." onClick={() => doExplore('smuggler', "Smuggler's Route")} disabled={turns < 3 || loading} blockMsg={turns < 3 ? `Need ${3 - turns} more turns` : null} />
-          <ResourceExploreCard tierKey="caravan"  icon={<IconWorld size={52}   color="var(--gold)"  opacity={0.65}/>} fc="var(--gold)"  imageId="grand-caravan"   name="Grand Caravan"    turnCost={8} preview={gs?.resourceTiers?.caravan}  desc="A full merchant caravan with an armed escort — the biggest resource haul, and the best shot at finding a real item." onClick={() => doExplore('caravan', 'Grand Caravan')} disabled={turns < 8 || loading} blockMsg={turns < 8 ? `Need ${8 - turns} more turns` : null} />
+          <div>
+            <div className={s.sectionLabel} style={{marginTop:2}}>Fortune — gold &amp; mana, no acres</div>
+            <div className={s.ucardGrid}>
+              <ResourceExploreCard tierKey="peddler"  icon={<IconBackpack size={52} color="var(--green)" opacity={0.65}/>} fc="var(--green)" imageId="peddlers-cart"   name="Peddler's Cart"   turnCost={1} preview={gs?.resourceTiers?.peddler}  desc="A quick, low-risk trade run — small but reliable gold and mana, with a rare chance of a stray item." onClick={() => doExplore('peddler', "Peddler's Cart")} disabled={turns < 1 || loading} blockMsg={turns < 1 ? `Need ${1 - turns} more turns` : null} />
+              <ResourceExploreCard tierKey="smuggler" icon={<IconTruck size={52}    color="var(--gold)"  opacity={0.65}/>} fc="var(--gold)"  imageId="smugglers-route" name="Smuggler's Route" turnCost={3} preview={gs?.resourceTiers?.smuggler} desc="A riskier back-road run through bandit country — bigger hauls, and better odds of turning up a usable item." onClick={() => doExplore('smuggler', "Smuggler's Route")} disabled={turns < 3 || loading} blockMsg={turns < 3 ? `Need ${3 - turns} more turns` : null} />
+              <ResourceExploreCard tierKey="caravan"  icon={<IconWorld size={52}   color="var(--gold)"  opacity={0.65}/>} fc="var(--gold)"  imageId="grand-caravan"   name="Grand Caravan"    turnCost={8} preview={gs?.resourceTiers?.caravan}  desc="A full merchant caravan with an armed escort — the biggest resource haul, and the best shot at finding a real item." onClick={() => doExplore('caravan', 'Grand Caravan')} disabled={turns < 8 || loading} blockMsg={turns < 8 ? `Need ${8 - turns} more turns` : null} />
+            </div>
+          </div>
         </div>
 
         {exploreResult && (
@@ -3447,9 +3453,10 @@ function BattleCard({ entry, defaultExpanded = false, compact = false }) {
 
       {/* ── Hero banner ── */}
       <div className={s.bcHero} onClick={() => setOpen(o => !o)} style={{cursor:'pointer',userSelect:'none'}}>
-        {result.targetFaction && (
-          <img className={s.bcHeroBg} src={`/images/factions/${result.targetFaction}.jpg`} alt="" aria-hidden="true"/>
-        )}
+        {/* Win/loss art, not faction art -- a triumphant siege scene for a
+            win, a hellish battlefield for a loss, regardless of who the
+            opponent was. */}
+        <img className={s.bcHeroBg} src={won ? '/images/battle/victory-hero.jpg' : '/images/battle/defeat-hero.jpg'} alt="" aria-hidden="true"/>
         <div className={s.bcHeroGrad}/>
         <div className={s.bcHeroContent}>
           {/* Left: result badge */}
