@@ -8,7 +8,23 @@
  */
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD', UTC -- fallback only
+}
+
+// The login streak needs to advance on the player's own calendar day, not
+// the server's UTC day -- toISOString() above shifts the "day" for anyone
+// not at UTC+0, which is how a player could see their streak stick at the
+// wrong count or miss the daily reward popup entirely (their local day
+// changed but the server's UTC day hadn't, or vice versa). The client
+// sends its own local YYYY-MM-DD (see client/src/api.js); this only
+// trusts it if it's within a day of the server's own date, which covers
+// every real time zone (UTC-12..UTC+14) while ignoring a wildly wrong or
+// missing value.
+function resolveToday(localDate) {
+  const serverToday = todayStr();
+  if (!localDate || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return serverToday;
+  const diffDays = Math.round((new Date(localDate) - new Date(serverToday)) / 86400000);
+  return Math.abs(diffDays) <= 1 ? localDate : serverToday;
 }
 
 // Returns: 'continue' | 'reset' | 'shield_used' | 'already_claimed' | 'start'
@@ -40,4 +56,4 @@ function computeStreakReward(streakDay, completedChains = 0) {
   return { goldAmt, manaAmt, landAmt, turnsAmt, awardShield, isMilestone, isMini };
 }
 
-module.exports = { todayStr, checkStreakContinuity, computeStreakReward };
+module.exports = { todayStr, resolveToday, checkStreakContinuity, computeStreakReward };

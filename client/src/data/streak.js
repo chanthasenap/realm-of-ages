@@ -1,7 +1,20 @@
 import { CONSUMABLE_POOL, AUCTION_POOL, RARITY_COLOR } from './items.js'
 
+// The player's own local calendar day, NOT UTC. toISOString() converts to
+// UTC first, which silently shifts the "day" for anyone not at UTC+0 --
+// e.g. someone in US time zones can open the app at night local time and
+// already be on "tomorrow" in UTC, or vice versa in the morning. That
+// mismatch is what caused the day counter to skip/stick and the reward
+// popup to sometimes not fire: the server and this file need to agree on
+// what day it is, and only the browser actually knows the player's local
+// time zone -- so this is also sent to the server (see api.js) to keep
+// both sides using the same definition of "today".
 export function getTodayDate() {
-  return new Date().toISOString().slice(0, 10) // 'YYYY-MM-DD'
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}` // 'YYYY-MM-DD', local time
 }
 
 // Returns: 'continue' | 'reset' | 'shield_used' | 'already_claimed' | 'start'

@@ -13,12 +13,25 @@ async function req(method, path, body) {
   return data
 }
 
+// The player's local calendar day (browser-local time, not UTC) -- the
+// server needs this to advance the login streak on the day the player
+// actually experiences, not on whatever day it happens to be in UTC.
+// Mirrors getTodayDate() in data/streak.js; duplicated here rather than
+// imported so api.js stays a plain fetch wrapper with no app-data deps.
+function localDateStr() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export const api = {
   // Auth
-  login:    (email, password) => req('POST', '/auth/login', { email, password }),
-  register: (name, email, password) => req('POST', '/auth/register', { name, email, password }),
+  login:    (email, password) => req('POST', '/auth/login', { email, password, localDate: localDateStr() }),
+  register: (name, email, password) => req('POST', '/auth/register', { name, email, password, localDate: localDateStr() }),
   logout:   () => req('POST', '/auth/logout'),
-  me:       () => req('GET', '/auth/me'),
+  me:       () => req('GET', `/auth/me?localDate=${encodeURIComponent(localDateStr())}`),
 
   // Faction
   setFaction: (faction) => req('POST', '/game/faction', { faction }),

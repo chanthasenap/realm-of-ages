@@ -131,7 +131,7 @@ export default function Game() {
   const btScrollRef = useRef(null)
   const btMyRowRef  = useRef(null)
   const [loading, setLoading]     = useState(false)
-  const [timer, setTimer]         = useState({ sec: 0 })
+  const [now, setNow]             = useState(() => Date.now())
   const [exploreResult, setExploreResult] = useState(null)
   const [auctionTick, setAuctionTick]     = useState(0)
   const [toasts, setToasts]       = useState([])
@@ -176,6 +176,20 @@ export default function Game() {
   useEffect(() => { if (faction && !loreFaction) setLoreFaction(faction) }, [faction])
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight }, [log])
 
+  // Builds the reward-modal data for a given streak snapshot and opens it.
+  // Shared by the automatic once-a-day popup below and the "Day N" badge's
+  // click handler, so clicking the badge reopens the exact same view --
+  // already-claimed included, in which case the modal just shows what was
+  // claimed rather than offering to claim again (see alreadyClaimed prop).
+  const openStreakModal = useCallback((streak) => {
+    if (!streak) return
+    const rewardData = generateStreakReward(streak.days, streak.chains)
+    setStreakBroke(!!streak.justBroke)
+    setShieldUsed(!!streak.justUsedShield)
+    setStreakRewardData({ ...rewardData, _newDays: streak.days, _newChains: streak.chains, _usedShield: !!streak.justUsedShield })
+    setShowStreak(true)
+  }, [])
+
   // Streak trigger: the server advances the login-streak day count at login/session-
   // restore (see server/routes/auth.js touchLoginStreak) and reports it via gs.streak.
   // Show the reward modal once per session whenever today's reward hasn't been claimed yet.
@@ -185,14 +199,24 @@ export default function Game() {
     const streak = gs.streak
     if (streak.lastDate !== today || streak.claimedToday) return
     streakTriggeredRef.current = true
-    const rewardData = generateStreakReward(streak.days, streak.chains)
-    setStreakBroke(!!streak.justBroke)
-    setShieldUsed(!!streak.justUsedShield)
-    setStreakRewardData({ ...rewardData, _newDays: streak.days, _newChains: streak.chains, _usedShield: !!streak.justUsedShield })
-    setShowStreak(true)
+    openStreakModal(streak)
   }, [gs?.streak?.lastDate, gs?.streak?.claimedToday])
+  // The "+1 in M:S" ticker used to just count up from whenever the page
+  // happened to load, completely disconnected from the server's actual
+  // schedule (turns: server/jobs.js '*/2 * * * *', a fixed wall-clock
+  // cron -- not "2 minutes after this tab opened"). It also never told
+  // the game to check for new turns, so even when the countdown hit
+  // zero, the displayed turn count just sat there until some other
+  // action happened to refetch state. Reading straight off Date.now()
+  // makes the countdown itself accurate, and a lightweight poll keeps
+  // turns/gold/mana in sync automatically instead of only after the
+  // player's next explore/build/recruit action.
   useEffect(() => {
-    const id = setInterval(() => setTimer(t => ({ sec: (t.sec + 1) % 120 })), 1000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  useEffect(() => {
+    const id = setInterval(() => { fetchGameState() }, 20000)
     return () => clearInterval(id)
   }, [])
 
@@ -205,7 +229,11 @@ export default function Game() {
   const totalArmy = gs?.army ? Object.values(gs.army).reduce((a, b) => a + b, 0) : 0
   const totalBld  = gs?.buildings ? Object.values(gs.buildings).reduce((a, b) => a + (b || 0), 0) : 0
 
-  const secLeft = 120 - timer.sec
+  // Turns land on even minutes server-side, wall-clock, regardless of
+  // when this tab was opened -- so derive the countdown the same way
+  // instead of from a page-load-relative counter.
+  const nowSec  = Math.floor(now / 1000)
+  const secLeft = (120 - (nowSec % 120)) % 120
   const mLeft   = Math.floor(secLeft / 60)
   const sLeft   = String(secLeft % 60).padStart(2, '0')
 
@@ -2771,11 +2799,17 @@ export default function Game() {
         <EbItem imageId="gold"  icon={<IconCoin size={14} color="var(--gold)"/>}       label="Gold"  value={gold.toLocaleString()}       rate={`${eco.goldNet>=0?'+':''}${eco.goldNet}/hr`} ratePos={eco.goldNet>=0}  barWidth={Math.min(100, gold/Math.max(gold,1000)*100)} barCls={s.barGold}  valCls={s.valGold} />
         <EbItem imageId="mana"  icon={<IconSparkles size={14} color="var(--mana)"/>}   label="Mana"  value={mana.toLocaleString()}       rate={`${eco.manaNet>=0?'+':''}${eco.manaNet}/hr`} ratePos={eco.manaNet>=0}  barWidth={Math.min(100, mana/500*100)}                barCls={s.barMana}  valCls={s.valMana} />
         {(gs?.streak?.days > 0) && (
-          <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4,padding:'0 0 0 16px',borderLeft:'1px solid rgba(255,255,255,0.08)',cursor:'default',flexShrink:0}} title={`${gs.streak.days}-day streak${gs.streak.shield?' · Shield active':''}`}>
+          <button
+            onClick={() => openStreakModal(gs.streak)}
+            style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4,padding:'4px 4px 4px 16px',borderLeft:'1px solid rgba(255,255,255,0.08)',borderTop:'none',borderRight:'none',borderBottom:'none',background:'none',cursor:'pointer',flexShrink:0,borderRadius:4}}
+            title={`${gs.streak.days}-day streak${gs.streak.shield?' · Shield active':''} — click to view rewards`}
+            aria-label={`Day ${gs.streak.days} login streak${gs.streak.claimedToday ? ', reward claimed' : ', reward available'} — open reward tracker`}
+          >
             <IconFlame size={14} color="#ff8c42" style={{filter:'drop-shadow(0 0 4px #ff8c4288)'}}/>
             <span style={{fontSize:11,fontWeight:700,color:'#ff8c42'}}>Day {gs.streak.days}</span>
             {gs.streak.shield && <IconShield size={11} color="#ffd700" style={{marginLeft:1}}/>}
-          </div>
+            {!gs.streak.claimedToday && <span style={{width:6,height:6,borderRadius:'50%',background:'#ff8c42',boxShadow:'0 0 5px #ff8c42',marginLeft:2}} aria-hidden="true"/>}
+          </button>
         )}
       </div>
 
@@ -3138,6 +3172,8 @@ export default function Game() {
         faction={faction}
         streakBroke={streakBroke}
         shieldUsed={shieldUsed}
+        alreadyClaimed={!!gs?.streak?.claimedToday}
+        onClose={() => setShowStreak(false)}
         onClaim={async () => {
           // Actual gold/mana/land/turns are granted and verified server-side;
           // this just tells the backend "credit today's reward" and refreshes state.

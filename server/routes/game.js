@@ -7,7 +7,7 @@ const express    = require('express');
 const db         = require('../db');
 const { FACTIONS, calcPower, calcEconomy, RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews } = require('../gameData');
 const { ITEM_CATALOG } = require('../itemData');
-const { todayStr, computeStreakReward } = require('../streakReward');
+const { computeStreakReward } = require('../streakReward');
 const router     = express.Router();
 
 // ── Auth middleware ────────────────────────────────────────────────
@@ -30,25 +30,41 @@ async function getFullState(playerId) {
 
   // The frontend expects buildings/army as { id: value } maps, not raw DB rows —
   // calcPower/calcEconomy above need the row arrays, so convert only for the response.
+  // Mercenary rows stay included here too (so total army counts include them),
+  // but they also need their origin faction to render correctly (their
+  // unit_id belongs to a foreign faction's roster, not the player's own) --
+  // mercs carries that out separately rather than reshaping `army` itself,
+  // so every existing native-unit consumer of gs.army keeps working as-is.
   const buildings = Object.fromEntries(buildingRows.map(b => [b.building_id, b.level]));
   const army      = Object.fromEntries(armyRows.map(a => [a.unit_id, a.quantity]));
+  const mercs     = armyRows
+    .filter(a => a.is_merc)
+    .map(a => ({ unitId: a.unit_id, factionId: a.merc_faction, quantity: a.quantity }));
 
   // Frontend reads resource fields (turns/gold/mana/land/...) straight off the state
   // object (gs.turns), not nested under gs.player.turns — spread them at the top level.
   // Never ship the password hash to the client.
   const { password, ...playerSafe } = player;
 
+  // streak_reward_claimed is reset to FALSE by touchLoginStreak (server/
+  // routes/auth.js) exactly when -- and only when -- it advances the
+  // player to a new day, so it's already an accurate "claimed for
+  // whatever day is currently recorded" flag on its own. Re-deriving
+  // "is that day still today" here using the server's own UTC clock (the
+  // old behavior) fought with touchLoginStreak's now-local-time day
+  // calculation and could report claimedToday:false for a reward that
+  // was, in fact, already claimed -- or vice versa.
   const streak = {
     days: player.streak_days || 0,
     chains: player.streak_chains || 0,
     shield: !!player.streak_shield,
     lastDate: player.streak_last_date || null,
-    claimedToday: player.streak_last_date === todayStr() ? !!player.streak_reward_claimed : false,
+    claimedToday: !!player.streak_reward_claimed,
     justBroke: !!player.streak_just_broke,
     justUsedShield: !!player.streak_just_shielded,
   };
 
-  return { player: playerSafe, ...playerSafe, buildings, army, items, events, power, economy, resourceTiers, streak };
+  return { player: playerSafe, ...playerSafe, buildings, army, mercs, items, events, power, economy, resourceTiers, streak };
 }
 
 async function logEvent(playerId, message, category = 'info') {
@@ -143,9 +159,7 @@ router.post('/streak/claim', async (req, res) => {
   try {
     const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
     if (!player) return res.status(401).json({ error: 'Player not found.' });
-
-    const today = todayStr();
-    if (player.streak_last_date !== today) {
+    if (!player.streak_last_date) {
       return res.status(400).json({ error: 'No streak reward pending today.' });
     }
     if (player.streak_reward_claimed) {

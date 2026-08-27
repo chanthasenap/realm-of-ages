@@ -5,13 +5,13 @@
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const db      = require('../db');
-const { todayStr, checkStreakContinuity, computeStreakReward } = require('../streakReward');
+const { resolveToday, checkStreakContinuity, computeStreakReward } = require('../streakReward');
 const router  = express.Router();
 
 // Advances a player's login streak at most once per calendar day.
 // Safe to call on every login/session-restore — no-ops if already updated today.
-async function touchLoginStreak(player) {
-  const today = todayStr();
+async function touchLoginStreak(player, localDate) {
+  const today = resolveToday(localDate);
   if (player.streak_last_date === today) return; // already handled today
 
   const status = checkStreakContinuity(player.streak_last_date, player.streak_shield, today);
@@ -33,7 +33,7 @@ async function touchLoginStreak(player) {
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, localDate } = req.body;
     if (!name || !email || !password)        return res.status(400).json({ error: 'All fields required.' });
     if (!email.includes('@') || !email.includes('.')) return res.status(400).json({ error: 'Invalid email address.' });
     if (password.length < 8)                return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -56,7 +56,7 @@ router.post('/register', async (req, res) => {
     req.session.playerId   = result.lastID;
     req.session.playerName = name.trim();
     req.session.save();
-    await touchLoginStreak({ id: result.lastID, streak_last_date: null, streak_shield: false, streak_days: 0, streak_chains: 0 });
+    await touchLoginStreak({ id: result.lastID, streak_last_date: null, streak_shield: false, streak_days: 0, streak_chains: 0 }, localDate);
     res.json({ ok: true, id: result.lastID, name: name.trim(), email: email.toLowerCase().trim() });
   } catch (err) {
     console.error('Register error:', err);
@@ -67,7 +67,7 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, localDate } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
 
     const player = await db.get('SELECT * FROM players WHERE email = ?', [email.toLowerCase().trim()]);
@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
 
     await db.run('UPDATE players SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [player.id]);
 
-    await touchLoginStreak(player);
+    await touchLoginStreak(player, localDate);
 
     // Regenerate session to prevent session fixation
     req.session.regenerate((err) => {
@@ -124,7 +124,7 @@ router.get('/me', async (req, res) => {
       req.session.destroy();
       return res.status(401).json({ error: 'Session invalid.' });
     }
-    await touchLoginStreak(p); // covers a session left open across midnight
+    await touchLoginStreak(p, req.query.localDate); // covers a session left open across midnight
     res.json({ ok: true, player: p, needsFaction: !p.faction });
   } catch (err) {
     res.status(500).json({ error: 'Server error.' });

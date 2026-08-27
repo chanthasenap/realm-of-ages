@@ -475,10 +475,14 @@ const REWARD_ICON = {
   item:  <IconPackage size={18} />,
 }
 
-export function DailyRewardModal({ rewardData, factionData, faction, streakBroke, shieldUsed, onClaim }) {
+export function DailyRewardModal({ rewardData, factionData, faction, streakBroke, shieldUsed, alreadyClaimed = false, onClaim, onClose }) {
   const [phase, setPhase]           = useState('enter')
   const [rewardsVis, setRewardsVis] = useState(false)
-  const [claimed, setClaimed]       = useState(false)
+  // Reopening via the Day-N badge after the reward's already been claimed
+  // should show that truthfully (a disabled "Claimed!" state), not offer
+  // to claim it again -- clicking claim a second time would just get
+  // rejected server-side.
+  const [claimed, setClaimed]       = useState(alreadyClaimed)
   const [imgFailed, setImgFailed]   = useState(false)
 
   const { rewards, isMilestone, isMini, awardShield, streakDay, completedChains, nextDayGold, nextExtras } = rewardData
@@ -535,6 +539,23 @@ export function DailyRewardModal({ rewardData, factionData, faction, streakBroke
         transition:'transform .42s cubic-bezier(.34,1.56,.64,1)',
         overflow:'hidden',
       }}>
+        {/* Close -- dismissing without claiming just means the reward is still
+            waiting; reopen it any time via the Day-N badge. */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position:'absolute', top:12, right:12, zIndex:2,
+              width:28, height:28, borderRadius:'50%',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background:'rgba(0,0,0,0.4)', border:'1px solid rgba(255,255,255,0.15)',
+              color:'rgba(255,255,255,0.8)', cursor:'pointer',
+            }}
+          >
+            <IconX size={14}/>
+          </button>
+        )}
         {/* Hero */}
         <div style={{
           position:'relative', overflow:'hidden',
