@@ -1255,34 +1255,95 @@ function calcEconomy(player, buildings, army, factionId) {
   return { goldGen, manaGen, goldUpkeep, manaUpkeep, goldNet: goldGen - goldUpkeep, manaNet: manaGen - manaUpkeep };
 }
 
-// ── Merchant Caravan reward (see server/routes/game.js '/explore') ─────────
-// The caravan trades turns for gold/mana with no land, so its payout has to
-// track how developed the player already is -- flat numbers were either a
-// rounding error for a big economy or a dominant strategy for a small one.
-// Turns regenerate 1 every 2 minutes (see server/jobs.js), i.e. 30/hour, so
-// dividing the player's hourly net income by 30 gives their true per-turn
-// value; the caravan then pays out CARAVAN_INCOME_TURNS worth of that for a
-// cost of only CARAVAN_TURN_COST turns -- a real premium for spending turns
-// now instead of just letting the passive tick accrue them. Floors keep a
-// fresh, building-less player's first caravan run worth taking; caps keep a
-// maxed-out economy from turning it into the obviously-correct move every
-// time turns are free.
-const CARAVAN_TURN_COST   = 2;
-const CARAVAN_INCOME_TURNS = 3;   // payout = this many turns of current income
-const TURNS_PER_HOUR       = 30;  // 1 turn / 2 min, matches server/jobs.js
-const CARAVAN_MIN_GOLD = 15,  CARAVAN_MAX_GOLD = 500;
-const CARAVAN_MIN_MANA = 4,   CARAVAN_MAX_MANA = 150;
+// ── Resource Exploration tiers (see server/routes/game.js '/explore') ──────
+// Three "Fortune" tiers that mirror the turn costs of the existing
+// "Territory" tiers (Scout Party / Expedition / Grand Conquest -- 1/3/8
+// turns) but pay out gold+mana instead of land. Rewards are ROLLED within a
+// range scaled to the player's own current income (perTurnGold/perTurnMana,
+// from calcEconomy) rather than a flat number or a deterministic payout --
+// floors keep a fresh, building-less player's first run worth taking; caps
+// keep a maxed-out economy from making the top tier an auto-win every time.
+// A single shared "luck" roll drives both gold and mana together (a good
+// run reads as good on both, not gold-lucky-but-mana-unlucky), and pushes
+// toward the top of the range as tier goes up -- so spending more turns
+// buys better odds, not just a bigger number, which is what makes choosing
+// a higher tier a real decision instead of pure arithmetic. Bonus item
+// finds are rolled separately in server/routes/game.js, which also owns
+// ITEM_CATALOG (this file intentionally has no item-catalog dependency).
+const TURNS_PER_HOUR = 30; // 1 turn / 2 min, matches server/jobs.js
 
-function calcCaravanReward(player, buildings, army, factionId) {
+const RESOURCE_TIERS = {
+  peddler: {
+    name: "Peddler's Cart",
+    turnCost: 1,
+    incomeTurnsMin: 0.6, incomeTurnsMax: 1.4,
+    minGold: 8,  maxGold: 180,
+    minMana: 2,  maxMana: 60,
+    itemChance: 0.04, // 1 in 25
+    itemPoolEnd: 4,   // cheapest 4 consumables (see game.js consumablePool())
+  },
+  smuggler: {
+    name: "Smuggler's Route",
+    turnCost: 3,
+    incomeTurnsMin: 2.2, incomeTurnsMax: 4.5,
+    minGold: 30, maxGold: 650,
+    minMana: 8,  maxMana: 220,
+    itemChance: 0.10, // 1 in 10
+    itemPoolEnd: 8,
+  },
+  caravan: {
+    name: 'Grand Caravan',
+    turnCost: 8,
+    incomeTurnsMin: 6, incomeTurnsMax: 13,
+    minGold: 90, maxGold: 1800,
+    minMana: 25, maxMana: 600,
+    itemChance: 0.18, // ~1 in 5.5
+    itemPoolEnd: 12,  // full consumable list -- only the top tier reaches it
+  },
+};
+
+function calcResourceTierReward(tierKey, player, buildings, army, factionId) {
+  const tier = RESOURCE_TIERS[tierKey];
+  if (!tier) return null;
   const eco = calcEconomy(player, buildings, army, factionId);
   const perTurnGold = Math.max(0, eco.goldNet) / TURNS_PER_HOUR;
   const perTurnMana = Math.max(0, eco.manaNet) / TURNS_PER_HOUR;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
+  const luck = Math.random();
+  const mult = tier.incomeTurnsMin + luck * (tier.incomeTurnsMax - tier.incomeTurnsMin);
   return {
-    goldBonus: clamp(perTurnGold * CARAVAN_INCOME_TURNS, CARAVAN_MIN_GOLD, CARAVAN_MAX_GOLD),
-    manaBonus: clamp(perTurnMana * CARAVAN_INCOME_TURNS, CARAVAN_MIN_MANA, CARAVAN_MAX_MANA),
-    turnCost: CARAVAN_TURN_COST,
+    goldBonus: clamp(perTurnGold * mult, tier.minGold, tier.maxGold),
+    manaBonus: clamp(perTurnMana * mult, tier.minMana, tier.maxMana),
+    turnCost: tier.turnCost,
+    luck,
   };
 }
 
-module.exports = { FACTIONS, AUCTION_ITEMS, POWER_WEIGHTS, calcPower, calcEconomy, calcCaravanReward };
+// Preview ranges for every tier at once, for getFullState() -- lets the
+// client show "roughly X-Y gold" on each card without exposing the luck
+// roll itself. Recomputed from the player's live economy on every state
+// fetch, so the preview drifts (intentionally) as their income grows.
+function calcResourceTierPreviews(player, buildings, army, factionId) {
+  const eco = calcEconomy(player, buildings, army, factionId);
+  const perTurnGold = Math.max(0, eco.goldNet) / TURNS_PER_HOUR;
+  const perTurnMana = Math.max(0, eco.manaNet) / TURNS_PER_HOUR;
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
+  const out = {};
+  for (const [key, tier] of Object.entries(RESOURCE_TIERS)) {
+    out[key] = {
+      turnCost: tier.turnCost,
+      minGold: clamp(perTurnGold * tier.incomeTurnsMin, tier.minGold, tier.maxGold),
+      maxGold: clamp(perTurnGold * tier.incomeTurnsMax, tier.minGold, tier.maxGold),
+      minMana: clamp(perTurnMana * tier.incomeTurnsMin, tier.minMana, tier.maxMana),
+      maxMana: clamp(perTurnMana * tier.incomeTurnsMax, tier.minMana, tier.maxMana),
+      itemChance: tier.itemChance,
+    };
+  }
+  return out;
+}
+
+module.exports = {
+  FACTIONS, AUCTION_ITEMS, POWER_WEIGHTS, calcPower, calcEconomy,
+  RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews,
+};
+

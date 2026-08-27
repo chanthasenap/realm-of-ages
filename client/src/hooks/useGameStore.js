@@ -94,7 +94,7 @@ export const useGameStore = create(
         } catch(e) { console.error('fetchGameState failed:', e) }
       },
 
-      explore:  async (turns)  => { const r=await api.explore(turns); await get().fetchGameState(); return r },
+      explore:  async (type)   => { const r=await api.explore(type); await get().fetchGameState(); return r },
       build:    async (id)     => { const r=await api.build(id); await get().fetchGameState(); return r },
       recruit:  async (id)     => { const r=await api.recruit(id,5); await get().fetchGameState(); return r },
       battle:   async (tid,u,item) => { const r=await api.battle(tid,u,item); await get().fetchGameState(); return r },

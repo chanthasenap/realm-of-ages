@@ -5,7 +5,7 @@
 
 const express    = require('express');
 const db         = require('../db');
-const { FACTIONS, calcPower, calcEconomy, calcCaravanReward } = require('../gameData');
+const { FACTIONS, calcPower, calcEconomy, RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews } = require('../gameData');
 const { ITEM_CATALOG } = require('../itemData');
 const { todayStr, computeStreakReward } = require('../streakReward');
 const router     = express.Router();
@@ -26,7 +26,7 @@ async function getFullState(playerId) {
   const events        = await db.all('SELECT * FROM event_log WHERE player_id = ? ORDER BY occurred_at DESC LIMIT 30', [playerId]);
   const power         = calcPower(player, buildingRows, armyRows, player.faction);
   const economy       = calcEconomy(player, buildingRows, armyRows, player.faction);
-  const caravan       = calcCaravanReward(player, buildingRows, armyRows, player.faction);
+  const resourceTiers = calcResourceTierPreviews(player, buildingRows, armyRows, player.faction);
 
   // The frontend expects buildings/army as { id: value } maps, not raw DB rows —
   // calcPower/calcEconomy above need the row arrays, so convert only for the response.
@@ -48,7 +48,7 @@ async function getFullState(playerId) {
     justUsedShield: !!player.streak_just_shielded,
   };
 
-  return { player: playerSafe, ...playerSafe, buildings, army, items, events, power, economy, caravan, streak };
+  return { player: playerSafe, ...playerSafe, buildings, army, items, events, power, economy, resourceTiers, streak };
 }
 
 async function logEvent(playerId, message, category = 'info') {
@@ -65,6 +65,39 @@ async function updatePower(playerId) {
   const power     = calcPower(player, buildings, army, player.faction);
   await db.run('UPDATE players SET power = ? WHERE id = ?', [power, playerId]);
   return power;
+}
+
+// Consumables sorted cheapest-first. A resource-exploration item find picks
+// uniformly from the first RESOURCE_TIERS[tier].itemPoolEnd entries of this
+// list -- higher tiers reach further into it, so they can find anything a
+// lower tier can plus better items a lower tier never reaches, without a
+// separate rarity field to keep in sync with the client catalog.
+function consumablePool() {
+  return Object.entries(ITEM_CATALOG)
+    .filter(([, it]) => it.itemCategory === 'consumable')
+    .sort((a, b) => a[1].goldPrice - b[1].goldPrice)
+    .map(([id]) => id);
+}
+
+// Shared by /auction/buy and /explore's item-discovery roll: grants a
+// stored item (consumable/artifact/passive), stacking qty onto an existing
+// (player_id, item_id) row instead of creating a duplicate.
+async function grantOrStackItem(playerId, itemId, qty) {
+  const item = ITEM_CATALOG[itemId];
+  if (!item) return null;
+  const existing = await db.get(
+    'SELECT id, qty FROM items WHERE player_id = ? AND item_id = ?',
+    [playerId, itemId]
+  );
+  if (existing) {
+    await db.run('UPDATE items SET qty = qty + ? WHERE id = ?', [qty, existing.id]);
+  } else {
+    await db.run(
+      'INSERT INTO items (player_id, item_id, item_name, qty) VALUES (?, ?, ?, ?)',
+      [playerId, itemId, item.name, qty]
+    );
+  }
+  return item;
 }
 
 // ── POST /api/game/faction ────────────────────────────────────────
@@ -140,41 +173,66 @@ router.post('/streak/claim', async (req, res) => {
 });
 
 // ── POST /api/game/explore ────────────────────────────────────────
+// Two independent families of explore type, both keyed by an explicit
+// `type` string (not inferred from turn cost -- several tiers now share a
+// cost, e.g. 'expedition' and 'smuggler' both spend 3 turns):
+//   Territory (scout/expedition/conquest) -- claims acres, no resources.
+//   Fortune   (peddler/smuggler/caravan)  -- resource tiers from
+//     RESOURCE_TIERS (server/gameData.js) -- gold+mana scaled to the
+//     player's own income, no acres, plus a small tier-scaled chance of
+//     a bonus item find.
+const TERRITORY_TIERS = { scout: 1, expedition: 3, conquest: 8 };
+
 router.post('/explore', async (req, res) => {
   try {
     const { type } = req.body;
-    const costs = { scout: 1, caravan: 2, expedition: 3, conquest: 8 };
-    const turnCost = costs[type];
-    if (!turnCost) return res.status(400).json({ error: 'Invalid explore type.' });
+    const isTerritory = Object.prototype.hasOwnProperty.call(TERRITORY_TIERS, type);
+    const isResource  = Object.prototype.hasOwnProperty.call(RESOURCE_TIERS, type);
+    if (!isTerritory && !isResource) return res.status(400).json({ error: 'Invalid explore type.' });
+    const turnCost = isTerritory ? TERRITORY_TIERS[type] : RESOURCE_TIERS[type].turnCost;
 
     const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
     if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
     if (player.turns < turnCost) return res.status(400).json({ error: `Not enough turns. Need ${turnCost}.` });
 
-    let acres = 0, goldBonus, manaBonus = 0;
-    if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = 5; }
-    // Merchant Caravan trades purely for coin and mana -- no acres. Its
-    // payout scales with the player's own current income (see
-    // calcCaravanReward) rather than a flat number, so it stays worth
-    // taking for a new economy without becoming the obviously-correct
-    // move for a developed one.
-    if (type === 'caravan') {
+    let acres = 0, goldBonus = 0, manaBonus = 0, foundItem = null;
+
+    if (isTerritory) {
+      if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = 5; }
+      if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = 20; }
+      if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = 60; manaBonus = 20; }
+    } else {
       const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [player.id]);
       const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [player.id]);
-      ({ goldBonus, manaBonus } = calcCaravanReward(player, buildings, army, player.faction));
+      ({ goldBonus, manaBonus } = calcResourceTierReward(type, player, buildings, army, player.faction));
+
+      const tier = RESOURCE_TIERS[type];
+      if (Math.random() < tier.itemChance) {
+        const pool = consumablePool().slice(0, tier.itemPoolEnd);
+        if (pool.length) {
+          const itemId = pool[Math.floor(Math.random() * pool.length)];
+          const item = await grantOrStackItem(player.id, itemId, 1);
+          if (item) foundItem = { itemId, name: item.name };
+        }
+      }
     }
-    if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = 20; }
-    if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = 60; manaBonus = 20; }
 
     await db.run(
       'UPDATE players SET turns = turns - ?, land = land + ?, gold = gold + ?, mana = mana + ? WHERE id = ?',
       [turnCost, acres, goldBonus, manaBonus, req.session.playerId]
     );
-    await updatePower(req.session.playerId);
+    // Power only depends on land/buildings/army (see calcPower) -- skip the
+    // recompute for pure resource runs, which never change any of those.
+    if (acres > 0) await updatePower(req.session.playerId);
 
-    const msg = `Explored ${acres} acres. Turn bonus: +${goldBonus}g${manaBonus ? ', +'+manaBonus+'m' : ''}.`;
+    const parts = [];
+    if (acres > 0) parts.push(`Explored ${acres} acres`);
+    if (goldBonus) parts.push(`+${goldBonus}g`);
+    if (manaBonus) parts.push(`+${manaBonus}m`);
+    if (foundItem) parts.push(`found ${foundItem.name}!`);
+    const msg = (parts.length ? parts.join(', ') : 'Nothing found this time') + '.';
     await logEvent(req.session.playerId, msg, 'explore');
-    res.json({ ok: true, acres, goldBonus, manaBonus, message: msg });
+    res.json({ ok: true, acres, goldBonus, manaBonus, foundItem, message: msg });
   } catch (err) {
     console.error('Explore error:', err);
     res.status(500).json({ error: 'Explore failed.' });
@@ -397,19 +455,9 @@ router.post('/auction/buy', async (req, res) => {
 
     // Passive relic, artifact, or consumable -- stored as an inventory row.
     // Consumables stack their charge count onto an existing row instead of
-    // creating a duplicate every purchase.
-    const existing = await db.get(
-      'SELECT id, qty FROM items WHERE player_id = ? AND item_id = ?',
-      [player.id, itemId]
-    );
-    if (existing) {
-      await db.run('UPDATE items SET qty = qty + ? WHERE id = ?', [item.qty, existing.id]);
-    } else {
-      await db.run(
-        'INSERT INTO items (player_id, item_id, item_name, qty) VALUES (?, ?, ?, ?)',
-        [player.id, itemId, item.name, item.qty]
-      );
-    }
+    // creating a duplicate every purchase (shared with /explore's item
+    // finds via grantOrStackItem).
+    await grantOrStackItem(player.id, itemId, item.qty);
 
     await logEvent(player.id, `Purchased ${item.name} from the Auction House.`, 'auction');
     res.json({ ok: true, itemId, item: item.name, itemCategory: item.itemCategory, qty: item.qty });

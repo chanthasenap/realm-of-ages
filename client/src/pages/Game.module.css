@@ -641,15 +641,31 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  transition: border-color .15s, transform .12s;
+  position: relative;
+  z-index: 1;
+  transition: border-color .15s, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease, z-index 0s .22s;
 }
-.ucard:hover { border-color: var(--fc, var(--border)); transform: translateY(-2px); }
+/* Hovered/focused cards scale up and lift above their neighbors so the art
+   reads at a bigger size instead of the small, tightly-cropped thumbnail
+   this replaced -- z-index switches immediately on entry (transition-delay
+   only applies on the way back out) so the card never renders under an
+   adjacent one mid-animation. Keyboard users get the same treatment via
+   :focus-within on the card's own button. */
+.ucard:hover,
+.ucard:focus-within {
+  border-color: var(--fc, var(--border));
+  transform: scale(1.045) translateY(-4px);
+  box-shadow: 0 14px 32px -8px rgba(0,0,0,.5);
+  z-index: 5;
+  transition: border-color .15s, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease, z-index 0s;
+}
 
-/* Hero image area */
+/* Hero image area -- taller than before so the art itself is the focal
+   point of the card rather than a strip above the stats. */
 .ucardHero {
   position: relative;
   width: 100%;
-  height: 120px;
+  height: 168px;
   flex-shrink: 0;
   overflow: hidden;
   background: var(--bg2);
@@ -659,10 +675,23 @@
 }
 .ucardHero img,
 .ucardHero > div:first-child { width: 100% !important; height: 100% !important; border-radius: 0 !important; }
+.ucardHero img { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+/* A little extra zoom on the art on top of the card's own scale-up gives a
+   subtle parallax/spotlight feel instead of the whole card just growing
+   uniformly. */
+.ucard:hover .ucardHero img,
+.ucard:focus-within .ucardHero img { transform: scale(1.09); }
 .ucardHeroOverlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ucard, .ucard:hover, .ucard:focus-within,
+  .ucardHero img, .ucard:hover .ucardHero img, .ucard:focus-within .ucardHero img {
+    transform: none;
+    transition: none;
+  }
 }
 
 /* Badges top-left / count top-right */
