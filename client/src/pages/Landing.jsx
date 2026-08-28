@@ -11,9 +11,8 @@ const LAST_EMAIL_KEY = 'roa_last_email'
 export default function Landing() {
   const [tab, setTab]       = useState('login')
   const [form, setForm]     = useState({ name: '', email: '', password: '' })
-  const [remember, setRemember] = useState(true)
   const [msg, setMsg]       = useState('')
-  const { login, register, logout, loading, player } = useGameStore()
+  const { login, register, loading, player } = useGameStore()
   const nav = useNavigate()
   const emailRef = useRef(null)
   const regEmailRef = useRef(null)
@@ -39,9 +38,6 @@ export default function Landing() {
       const res = await login(email, form.password)
       if (res.ok) {
         localStorage.setItem(LAST_EMAIL_KEY, email)
-        if (!remember) {
-          window.addEventListener('beforeunload', () => logout(), { once: true })
-        }
         nav('/game')
       } else {
         setMsg(res.error || 'Login failed.')
@@ -104,10 +100,6 @@ export default function Landing() {
               <input id="lp" type="password" value={form.password} onChange={upd('password')} onKeyDown={handleKey}
                 placeholder="••••••••" autoComplete="current-password" />
             </div>
-            <label className={s.remember}>
-              <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
-              Stay signed in
-            </label>
             <button className={s.btnG} onClick={handleLogin} disabled={loading}>
               <IconSword size={15} /> {loading ? 'Entering…' : 'March to War'}
             </button>
@@ -129,10 +121,6 @@ export default function Landing() {
               <input id="rp" type="password" value={form.password} onChange={upd('password')} onKeyDown={handleKey}
                 placeholder="Min. 8 characters" autoComplete="new-password" />
             </div>
-            <label className={s.remember}>
-              <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
-              Stay signed in
-            </label>
             <button className={s.btnG} onClick={handleRegister} disabled={loading}>
               <IconShieldCheck size={15} /> {loading ? 'Creating…' : 'Claim Your Destiny'}
             </button>

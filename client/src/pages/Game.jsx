@@ -20,7 +20,7 @@ import {
   IconChevronDown, IconChevronUp, IconInfoCircle, IconSwords, IconCheck,
   IconUsers, IconUserPlus, IconMessageCircle, IconCalendarEvent,
   IconPigMoney, IconChevronLeft, IconChevronRight, IconSend, IconSearch, IconCrown, IconX,
-  IconGift, IconTruck, IconBackpack, IconTrash,
+  IconGift, IconTruck, IconBackpack, IconTrash, IconLogout,
 } from '@tabler/icons-react'
 import { GUILD_CREATION_COST, GUILD_MAX_MEMBERS, MOCK_GUILDS, GUILD_EVENTS, GUILD_PERKS, GUILD_MILESTONES } from '../data/guilds.js'
 import s from './Game.module.css'
@@ -2822,7 +2822,7 @@ export default function Game() {
               }}
             ><IconTrash size={14}/></button>
           )}
-          <button className={s.btnSm} onClick={() => { logout(); nav('/') }}><IconSettings size={14}/></button>
+          <button className={s.btnSm} title="Log out" onClick={() => { logout(); nav('/') }}><IconLogout size={14}/></button>
         </div>
       </div>
 
