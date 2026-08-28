@@ -379,8 +379,17 @@ export default function Game() {
     // anything was happening at all during that gap.
     setBcResolving(true)
     setLoading(true)
+    // Also enforce a minimum time on screen: on a warm server this request
+    // can come back in well under 200ms, which is fast enough that the
+    // resolving pane can flash by without ever really being seen. Racing
+    // the real request against a floor delay keeps it on screen long enough
+    // to register as "something happened" even when nothing was slow.
+    const minDisplay = new Promise(resolve => setTimeout(resolve, 450))
     try {
-      const res = await battle(targetId, unitSelection, bcItem || null)
+      const [res] = await Promise.all([
+        battle(targetId, unitSelection, bcItem || null),
+        minDisplay,
+      ])
       const msg = res.win ? `Victory vs ${res.targetName}` : `Defeat vs ${res.targetName}`
       addLog({ cls: res.win ? 'win' : 'lose', icon: res.win ? 'win' : 'lose', type: 'battle', msg, result: { ...res, playerFaction: player?.faction } })
       if (res.win) {
@@ -2816,7 +2825,20 @@ export default function Game() {
             </span>
           )}
           <span className={s.ptag}>{player?.name}</span>
-          <button className={s.btnSm} style={{color:'var(--green)',borderColor:'rgba(109,204,170,.3)'}} onClick={devRefillTurns} title="DEV: Refill turns"><IconClock size={14}/></button>
+          {player?.email?.toLowerCase().trim() === 'chanthasena.peter@gmail.com' && (
+            <button
+              className={s.btnSm}
+              style={{color:'var(--green)',borderColor:'rgba(109,204,170,.3)'}}
+              title="DEV: Refill turns"
+              onClick={async () => {
+                try {
+                  await devRefillTurns()
+                } catch (e) {
+                  alert('Refill failed: ' + e.message)
+                }
+              }}
+            ><IconClock size={14}/></button>
+          )}
           {player?.email?.toLowerCase().trim() === 'chanthasena.peter@gmail.com' && (
             <button
               className={s.btnSm}

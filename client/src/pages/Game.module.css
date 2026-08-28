@@ -2260,7 +2260,16 @@
 }
 
 .bcOverlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.74); z-index: 200;
+  /* z-index 10000: a raid the player explicitly launched -- and especially
+     its "resolving" state below, which they need to actually see to know
+     the request is in flight -- must never end up buried behind the
+     onboarding tour (WelcomeFlow.jsx uses 9990-9999 so it can sit over
+     everything else in the app). Confirmed via a local repro: with the
+     tour still active, the resolving pane rendered correctly in the DOM
+     (visible, opacity 1, correctly positioned) but was completely hidden
+     under the tour's backdrop -- a modal the player opened on purpose
+     should always win that fight. */
+  position: fixed; inset: 0; background: rgba(0,0,0,.74); z-index: 10000;
   display: flex; align-items: center; justify-content: center;
   animation: bcOverlayIn .18s ease;
 }
