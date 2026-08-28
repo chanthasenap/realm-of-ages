@@ -36,6 +36,7 @@ export const api = {
   // Dev tools (restricted server-side to the creator's own test account —
   // see server/routes/dev.js)
   devResetAccount: () => req('POST', '/dev/reset-account'),
+  devRefillTurns:  () => req('POST', '/dev/refill-turns'),
 
   // Faction
   setFaction: (faction) => req('POST', '/game/faction', { faction }),
