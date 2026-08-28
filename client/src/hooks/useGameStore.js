@@ -250,7 +250,15 @@ export const useGameStore = create(
         return {success:true}
       },
       invitePlayer: (q) => !q?.trim()?[]:MOCK_PLAYERS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,5),
-      devRefillTurns: () => set(s=>({gameState:{...s.gameState,turns:200}})),
+      // Was a purely client-side fake (just nudged the local Zustand copy of
+      // turns) that never touched the player row server-side -- the bar
+      // looked refilled but the very next turn-costing action would 400
+      // against the real, un-refilled balance. Now a real server call,
+      // same restricted-to-dev-account pattern as devResetAccount below.
+      devRefillTurns: async () => {
+        await api.devRefillTurns()
+        await get().fetchGameState()
+      },
       // Wipes the current account entirely (server-side, restricted to a single
       // hardcoded email — see server/routes/dev.js) so the same email can go
       // through /register again from scratch. Lets the creator repeatedly test
