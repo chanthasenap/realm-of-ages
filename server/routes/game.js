@@ -339,13 +339,29 @@ router.post('/recruit', async (req, res) => {
     // Yield roll: cost is always exactly what was quoted (goldCost/manaCost
     // above never vary -- punishing a planned purchase with variance is
     // frustrating, not fun), but the number of recruits granted can come
-    // in at or above what was paid for, never below. Weighted toward a
-    // small bonus (squared roll pulls most results near 0%), with a rare
-    // bigger "surge" recruit on top so recruiting doesn't feel like a
-    // vending machine.
-    const surge = Math.random() < 0.03;
-    const bonusPct = surge ? 0.25 + Math.random() * 0.15 : (Math.random() ** 2) * 0.15;
-    const bonusUnits = Math.round(qty * bonusPct);
+    // in at or above what was paid for, never below.
+    //
+    // The client only ever requests qty=5 (no batch-size picker in the UI
+    // yet), and a plain percentage roll rounds itself away to nothing at
+    // that size: round(5 * 0.15) is already just 1, and the old squared-
+    // random distribution landed above that 0.1 threshold only ~18% of the
+    // time, so ~4 in 5 recruits came back looking exactly like the flat
+    // amount paid for -- not the "spice it up" variance this was meant to
+    // add. Using Math.max(1, ...) floors on each non-zero tier below keeps
+    // a real 0-bonus outcome as the single most common result (45%) while
+    // guaranteeing every OTHER tier is actually visible regardless of qty,
+    // instead of being silently rounded back down to it.
+    const tierRoll = Math.random();
+    let bonusUnits;
+    if (tierRoll < 0.45) {
+      bonusUnits = 0;
+    } else if (tierRoll < 0.85) {
+      bonusUnits = Math.max(1, Math.round(qty * (0.05 + Math.random() * 0.10))); // small bump
+    } else if (tierRoll < 0.97) {
+      bonusUnits = Math.max(2, Math.round(qty * (0.15 + Math.random() * 0.15))); // bigger bump
+    } else {
+      bonusUnits = Math.max(3, Math.round(qty * (0.30 + Math.random() * 0.20))); // rare surge
+    }
     const granted = qty + bonusUnits;
 
     const existing = await db.get(

@@ -54,4 +54,34 @@ router.post('/reset-account', async (req, res) => {
   }
 });
 
+// POST /api/dev/refill-turns
+// Same restriction as reset-account: only the developer test account, only
+// while logged in as it. Sets turns back to the schema's starting value
+// server-side -- the button previously only nudged the client's local
+// Zustand copy of turns, which looked like a refill but never touched the
+// player row in the DB, so the very next turn-costing action (explore,
+// build, recruit, battle) would immediately fail with "not enough turns"
+// against the real, un-refilled balance.
+router.post('/refill-turns', async (req, res) => {
+  if (!enabled()) return res.status(404).json({ error: 'Not found.' });
+
+  if (!req.session.playerId) {
+    return res.status(401).json({ error: 'You must be logged in to use this tool.' });
+  }
+
+  try {
+    const player = await db.get('SELECT id, email FROM players WHERE id = ?', [req.session.playerId]);
+
+    if (!player || player.email.toLowerCase().trim() !== DEV_EMAIL) {
+      return res.status(403).json({ error: 'This tool is restricted to the developer test account.' });
+    }
+
+    await db.run('UPDATE players SET turns = 200 WHERE id = ?', [player.id]);
+    res.json({ ok: true, turns: 200 });
+  } catch (err) {
+    console.error('Dev refill-turns error:', err);
+    res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+});
+
 module.exports = router;
