@@ -384,7 +384,12 @@ export default function Game() {
     // resolving pane can flash by without ever really being seen. Racing
     // the real request against a floor delay keeps it on screen long enough
     // to register as "something happened" even when nothing was slow.
-    const minDisplay = new Promise(resolve => setTimeout(resolve, 450))
+    // 450ms wasn't quite enough in practice -- even with the bigger,
+    // louder resolving treatment below, it could still resolve inside the
+    // pane's own .25s fade-in, so the "in progress" moment barely got a
+    // beat before vanishing. 700ms gives it a real, unmissable beat on
+    // screen without feeling like an artificial delay.
+    const minDisplay = new Promise(resolve => setTimeout(resolve, 700))
     try {
       const [res] = await Promise.all([
         battle(targetId, unitSelection, bcItem || null),
@@ -3044,7 +3049,7 @@ export default function Game() {
             </div>
 
             {/* ── Top bar: target info + close ── */}
-            <div className={s.bcTopBar}>
+            <div className={`${s.bcTopBar} ${bcResolving ? s.bcChromeDim : ''}`}>
               <div className={s.bcTargetChip} style={{ '--tc': tf.color }}>
                 <NavIcon id="battle" FallbackIcon={IconShieldBolt} />
                 <span>Raiding</span>
@@ -3055,7 +3060,7 @@ export default function Game() {
             </div>
 
             {/* ── Breadcrumb ── */}
-            <div className={s.bcCrumb}>
+            <div className={`${s.bcCrumb} ${bcResolving ? s.bcChromeDim : ''}`}>
               {STEPS.map((label, i) => {
                 const stepNum  = i + 1
                 const isActive = stepNum === bcStep
@@ -3083,9 +3088,14 @@ export default function Game() {
             <div className={s.bcBody}>
               {bcResolving ? (
                 <div className={s.bcResolving} role="status" aria-live="polite">
-                  <IconSwords size={30} className={s.bcResolvingIcon}/>
+                  <div className={s.bcResolvingIconWrap}>
+                    <div className={s.bcResolvingGlow} aria-hidden="true" />
+                    <div className={s.bcResolvingRing} aria-hidden="true" />
+                    <IconSwords size={30} className={s.bcResolvingIcon}/>
+                  </div>
                   <div className={s.bcResolvingLabel}>Marching on {target.name}…</div>
                   <div className={s.bcResolvingSub}>Steel meets steel. This won't take long.</div>
+                  <div className={s.bcResolvingBar} aria-hidden="true"><div className={s.bcResolvingBarFill} /></div>
                 </div>
               ) : <>
 
