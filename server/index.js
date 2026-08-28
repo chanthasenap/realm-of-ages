@@ -14,6 +14,7 @@ const rateLimit   = require('express-rate-limit');
 
 const authRoutes  = require('./routes/auth');
 const gameRoutes  = require('./routes/game');
+const devRoutes   = require('./routes/dev');
 const { startJobs } = require('./jobs');
 const { runMigrations } = require('./migrate');
 const { seedBots } = require('./seedBots');
@@ -55,6 +56,7 @@ const gameLimiter = rateLimit({
 
 app.use('/api/auth', authLimiter);
 app.use('/api/game', gameLimiter);
+app.use('/api/dev', authLimiter);
 
 // ── Session store ─────────────────────────────────────────────────
 // Production: PostgreSQL-backed (survives restarts, scales)
@@ -100,6 +102,7 @@ app.use(session({
 // ── API routes ────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
+app.use('/api/dev', devRoutes);
 
 const { FACTIONS, AUCTION_ITEMS } = require('./gameData');
 app.get('/api/gamedata', (req, res) => res.json({ FACTIONS, AUCTION_ITEMS }));
