@@ -2311,6 +2311,34 @@
   animation: bcWispA 3.8s ease-in-out infinite 1.6s;
 }
 
+/* resolving state — shown in place of step content/footer while a raid
+   request is in flight, so the modal stays put instead of vanishing the
+   instant "Launch Raid" is clicked (that gap can be 50+ seconds on a
+   cold-started free-tier server, not just typical network latency). */
+.bcResolving {
+  position: relative; z-index: 1;
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 24px; text-align: center;
+}
+.bcResolvingIcon {
+  color: var(--fc);
+  animation: bcResolvingSpin 1.1s linear infinite;
+}
+.bcResolvingLabel {
+  font-size: 13px; letter-spacing: .3px; color: var(--text);
+}
+.bcResolvingSub {
+  font-size: 11px; color: var(--muted);
+}
+@keyframes bcResolvingSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bcResolvingIcon { animation: none; }
+}
+
 /* all direct modal sections sit above the wisp layer */
 .bcTopBar, .bcCrumb, .bcBody, .bcFooter { position: relative; z-index: 1; }
 

@@ -143,6 +143,7 @@ export default function Game() {
   const [bcItem, setBcItem]       = useState('')   // itemId of selected consumable/artifact
   const [bcItemOpen, setBcItemOpen] = useState(false)
   const [bcStep, setBcStep]         = useState(1)  // 1 = units, 2 = item
+  const [bcResolving, setBcResolving] = useState(false)  // true while the raid request is in flight
   const logRef      = useRef(null)
   const rkScrollRef = useRef(null)
   const myRowRef    = useRef(null)
@@ -362,6 +363,7 @@ export default function Game() {
     setBcItem('')
     setBcStep(1)
     setBcItemOpen(false)
+    setBcResolving(false)
     setBattleConfig({ targetId })
   }
 
@@ -370,22 +372,31 @@ export default function Game() {
     const { targetId } = battleConfig
     const hasAnyUnit = Object.values(bcUnits).some(q => q > 0)
     const unitSelection = hasAnyUnit ? bcUnits : null
-    setBattleConfig(null)
+    // Stay on the modal (now showing a "resolving" pane, see bcResolving
+    // below) instead of closing it immediately -- a cold-started free-tier
+    // server can leave 50+ seconds of dead silence between click and
+    // response, and closing the modal right away gave no indication
+    // anything was happening at all during that gap.
+    setBcResolving(true)
     setLoading(true)
     try {
       const res = await battle(targetId, unitSelection, bcItem || null)
       const msg = res.win ? `Victory vs ${res.targetName}` : `Defeat vs ${res.targetName}`
       addLog({ cls: res.win ? 'win' : 'lose', icon: res.win ? 'win' : 'lose', type: 'battle', msg, result: { ...res, playerFaction: player?.faction } })
       if (res.win) {
-        showToast(`Victory — ${res.targetName} defeated`, `+${res.goldGain}g · +${res.manaGain}m · +${res.landGain} acres`, 'win')
+        const casualtyNote = res.totalCasualties > 0 ? ` · −${res.totalCasualties} unit${res.totalCasualties > 1 ? 's' : ''} lost` : ' · Flawless'
+        showToast(`Victory — ${res.targetName} defeated`, `+${res.goldGain}g · +${res.manaGain}m · +${res.landGain} acres${casualtyNote}`, 'win')
       } else {
-        showToast(`Defeat — ${res.targetName} prevailed`, `−${res.goldLoss}g · −${res.manaLoss}m · regroup and rebuild`, 'lose')
+        const casualtyNote = res.totalCasualties > 0 ? ` · −${res.totalCasualties} unit${res.totalCasualties > 1 ? 's' : ''} lost` : ''
+        showToast(`Defeat — ${res.targetName} prevailed`, `−${res.goldLoss}g · −${res.manaLoss}m${casualtyNote} · regroup and rebuild`, 'lose')
       }
     } catch (e) {
       addLog({ cls: 'err', icon: 'err', msg: 'Battle failed.' })
       showToast('Battle failed', e.message, 'err')
     }
     setLoading(false)
+    setBcResolving(false)
+    setBattleConfig(null)
   }
 
   const doBuyItem = async (item) => {
@@ -3048,6 +3059,13 @@ export default function Game() {
 
             {/* ── Step body ── */}
             <div className={s.bcBody}>
+              {bcResolving ? (
+                <div className={s.bcResolving} role="status" aria-live="polite">
+                  <IconSwords size={30} className={s.bcResolvingIcon}/>
+                  <div className={s.bcResolvingLabel}>Marching on {target.name}…</div>
+                  <div className={s.bcResolvingSub}>Steel meets steel. This won't take long.</div>
+                </div>
+              ) : <>
 
               {/* STEP 1 — Select Units */}
               {bcStep === 1 && (
@@ -3190,10 +3208,14 @@ export default function Game() {
                   })()}
                 </div>
               )}
+              </>}
             </div>
 
             {/* ── Footer ── */}
             <div className={s.bcFooter}>
+              {bcResolving ? (
+                <div className={s.bcCostNote} style={{flex:1, justifyContent:'center'}}>Awaiting the outcome…</div>
+              ) : <>
               <div className={s.bcCostNote}><IconClock size={12}/> 3 turns</div>
               {bcStep === 1 ? (
                 <>
@@ -3215,6 +3237,7 @@ export default function Game() {
                   </AnimBtn>
                 </>
               )}
+              </>}
             </div>
           </div>
         </div>
