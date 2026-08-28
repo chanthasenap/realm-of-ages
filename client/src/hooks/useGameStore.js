@@ -251,6 +251,14 @@ export const useGameStore = create(
       },
       invitePlayer: (q) => !q?.trim()?[]:MOCK_PLAYERS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,5),
       devRefillTurns: () => set(s=>({gameState:{...s.gameState,turns:200}})),
+      // Wipes the current account entirely (server-side, restricted to a single
+      // hardcoded email — see server/routes/dev.js) so the same email can go
+      // through /register again from scratch. Lets the creator repeatedly test
+      // registration + login + faction select without burning a new address.
+      devResetAccount: async () => {
+        await api.devResetAccount()
+        set({ player: null, gameState: null })
+      },
     }),
     { name:'rog-store', partialize:(s)=>({player:s.player}) }
   )
