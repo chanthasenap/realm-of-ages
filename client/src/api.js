@@ -33,6 +33,10 @@ export const api = {
   logout:   () => req('POST', '/auth/logout'),
   me:       () => req('GET', `/auth/me?localDate=${encodeURIComponent(localDateStr())}`),
 
+  // Dev tools (restricted server-side to the creator's own test account —
+  // see server/routes/dev.js)
+  devResetAccount: () => req('POST', '/dev/reset-account'),
+
   // Faction
   setFaction: (faction) => req('POST', '/game/faction', { faction }),
 
