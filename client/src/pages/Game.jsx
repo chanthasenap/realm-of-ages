@@ -20,7 +20,7 @@ import {
   IconChevronDown, IconChevronUp, IconInfoCircle, IconSwords, IconCheck,
   IconUsers, IconUserPlus, IconMessageCircle, IconCalendarEvent,
   IconPigMoney, IconChevronLeft, IconChevronRight, IconSend, IconSearch, IconCrown, IconX,
-  IconGift, IconTruck, IconBackpack,
+  IconGift, IconTruck, IconBackpack, IconTrash,
 } from '@tabler/icons-react'
 import { GUILD_CREATION_COST, GUILD_MAX_MEMBERS, MOCK_GUILDS, GUILD_EVENTS, GUILD_PERKS, GUILD_MILESTONES } from '../data/guilds.js'
 import s from './Game.module.css'
@@ -118,7 +118,7 @@ function calcCombatPower(faction, gs, unitSelection = null) {
 }
 
 export default function Game() {
-  const { player, gameState, fetchGameState, explore, build, recruit, battle, buyAuctionItem, refreshAuction, fetchRankings, fetchTargets, logout, devRefillTurns, addLog, clearLog, guild, guildInvites, createGuild, searchGuilds, acceptInvite, declineInvite, leaveGuild, disbandGuild, sendGuildChat, depositTreasury, promoteMember, demoteMember, kickMember, transferOwnership, updateGuildSettings, invitePlayer, claimStreakReward, purchaseGuildPerk, setPinnedAnnouncement, setGuildGuidelines, mercListings, mercRefreshAt, initMercListings, refreshMercListings, hireMerc } = useGameStore()
+  const { player, gameState, fetchGameState, explore, build, recruit, battle, buyAuctionItem, refreshAuction, fetchRankings, fetchTargets, logout, devRefillTurns, devResetAccount, addLog, clearLog, guild, guildInvites, createGuild, searchGuilds, acceptInvite, declineInvite, leaveGuild, disbandGuild, sendGuildChat, depositTreasury, promoteMember, demoteMember, kickMember, transferOwnership, updateGuildSettings, invitePlayer, claimStreakReward, purchaseGuildPerk, setPinnedAnnouncement, setGuildGuidelines, mercListings, mercRefreshAt, initMercListings, refreshMercListings, hireMerc } = useGameStore()
   const nav = useNavigate()
   const [panel, setPanel]         = useState('overview')
   const [rankings, setRankings]   = useState([])
@@ -2806,6 +2806,22 @@ export default function Game() {
           )}
           <span className={s.ptag}>{player?.name}</span>
           <button className={s.btnSm} style={{color:'var(--green)',borderColor:'rgba(109,204,170,.3)'}} onClick={devRefillTurns} title="DEV: Refill turns"><IconClock size={14}/></button>
+          {player?.email?.toLowerCase().trim() === 'chanthasena.peter@gmail.com' && (
+            <button
+              className={s.btnSm}
+              style={{color:'var(--red)',borderColor:'rgba(232,120,120,.3)'}}
+              title="DEV: wipe this test account and start over"
+              onClick={async () => {
+                if (!window.confirm('This permanently deletes this account and all its progress, so you can register again with the same email. Continue?')) return
+                try {
+                  await devResetAccount()
+                  nav('/')
+                } catch (e) {
+                  alert('Reset failed: ' + e.message)
+                }
+              }}
+            ><IconTrash size={14}/></button>
+          )}
           <button className={s.btnSm} onClick={() => { logout(); nav('/') }}><IconSettings size={14}/></button>
         </div>
       </div>
