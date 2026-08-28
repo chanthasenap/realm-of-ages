@@ -212,9 +212,14 @@ router.post('/explore', async (req, res) => {
     let acres = 0, goldBonus = 0, manaBonus = 0, foundItem = null;
 
     if (isTerritory) {
-      if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = 5; }
-      if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = 20; }
-      if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = 60; manaBonus = 20; }
+      // Acres already rolled in a range -- the accompanying gold/mana
+      // bonus used to be a flat constant, which read as blander than the
+      // acre roll right next to it. Rolled around the old flat value now
+      // (same rough average, real variance) so all three Territory tiers
+      // feel consistent with each other and with the Fortune tiers.
+      if (type === 'scout')      { acres = Math.floor(Math.random()*11)+5;  goldBonus = Math.floor(Math.random()*7)+3; }
+      if (type === 'expedition') { acres = Math.floor(Math.random()*31)+20; goldBonus = Math.floor(Math.random()*19)+12; }
+      if (type === 'conquest')   { acres = Math.floor(Math.random()*71)+80; goldBonus = Math.floor(Math.random()*51)+40; manaBonus = Math.floor(Math.random()*19)+12; }
     } else {
       const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [player.id]);
       const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [player.id]);
@@ -331,6 +336,18 @@ router.post('/recruit', async (req, res) => {
     if (player.mana < manaCost) return res.status(400).json({ error: `Need ${manaCost} mana.` });
     if (player.turns < 1)       return res.status(400).json({ error: 'Need at least 1 turn.' });
 
+    // Yield roll: cost is always exactly what was quoted (goldCost/manaCost
+    // above never vary -- punishing a planned purchase with variance is
+    // frustrating, not fun), but the number of recruits granted can come
+    // in at or above what was paid for, never below. Weighted toward a
+    // small bonus (squared roll pulls most results near 0%), with a rare
+    // bigger "surge" recruit on top so recruiting doesn't feel like a
+    // vending machine.
+    const surge = Math.random() < 0.03;
+    const bonusPct = surge ? 0.25 + Math.random() * 0.15 : (Math.random() ** 2) * 0.15;
+    const bonusUnits = Math.round(qty * bonusPct);
+    const granted = qty + bonusUnits;
+
     const existing = await db.get(
       'SELECT quantity FROM army WHERE player_id = ? AND unit_id = ?',
       [req.session.playerId, unitId]
@@ -338,12 +355,12 @@ router.post('/recruit', async (req, res) => {
     if (existing) {
       await db.run(
         'UPDATE army SET quantity = quantity + ? WHERE player_id = ? AND unit_id = ?',
-        [qty, req.session.playerId, unitId]
+        [granted, req.session.playerId, unitId]
       );
     } else {
       await db.run(
         'INSERT INTO army (player_id, unit_id, quantity) VALUES (?, ?, ?)',
-        [req.session.playerId, unitId, qty]
+        [req.session.playerId, unitId, granted]
       );
     }
 
@@ -353,9 +370,11 @@ router.post('/recruit', async (req, res) => {
     );
     await updatePower(req.session.playerId);
 
-    const msg = `Recruited ${qty}× ${uDef.name}.`;
+    const msg = bonusUnits > 0
+      ? `Recruited ${granted}× ${uDef.name} (+${bonusUnits} bonus recruit${bonusUnits > 1 ? 's' : ''}!).`
+      : `Recruited ${granted}× ${uDef.name}.`;
     await logEvent(req.session.playerId, msg, 'recruit');
-    res.json({ ok: true, unit: unitId, unitName: uDef.name, quantity: qty, message: msg });
+    res.json({ ok: true, unit: unitId, unitName: uDef.name, quantity: granted, paidFor: qty, bonusUnits, message: msg });
   } catch (err) {
     console.error('Recruit error:', err);
     res.status(500).json({ error: 'Recruit failed.' });
@@ -435,9 +454,80 @@ router.post('/merc/hire', async (req, res) => {
 });
 
 // ── POST /api/game/battle ─────────────────────────────────────────
+// Casualty model: a proportional loss rolled once per battle, scaled by
+// how close the fight was -- a decisive win/loss rolls toward the bottom
+// of its range, a near-even fight rolls toward the top -- and a bad
+// defeat costs real units without ever being able to wipe the whole
+// committed force in one raid.
+//
+// "Flawless" (0 losses) is meant to be an emergent, rare-but-possible
+// outcome of a dominant win, at ANY army size. The proportional model
+// alone can't deliver that on its own: round(committed * rate) hits its
+// floor at rate=0.04 (the most dominant win possible), so any committed
+// force of 13+ units always rounds up to at least 1 casualty no matter
+// how lucky the roll -- Flawless becomes silently impossible past a
+// trivially small army instead of just rare. FLAWLESS_CHANCE below is a
+// separate, explicit rare-roll on top of that model specifically so a
+// big, one-sided victory can still occasionally cost nothing, matching
+// what "very rare but possible" actually promises to the player.
+const CASUALTY_RANGE = { win: [0.04, 0.12], lose: [0.10, 0.25] };
+const FLAWLESS_BASE = 0.03;          // floor chance even in a near-even win
+const FLAWLESS_DOMINANCE_BONUS = 0.07; // extra chance the more lopsided the win
+
+function evennessOf(powerRatio) {
+  // powerRatio = defender.power / attacker.power -- near 1 is an even
+  // fight; far from 1 in either direction is lopsided.
+  return Math.max(0, 1 - Math.abs(1 - powerRatio) / 1.5);
+}
+
+function rollCasualtyRate(win, powerRatio, casualtyReduction) {
+  const [lo, hi] = CASUALTY_RANGE[win ? 'win' : 'lose'];
+  const evenness = evennessOf(powerRatio);
+  const t = 0.6 * evenness + 0.4 * Math.random();
+  const rate = (lo + (hi - lo) * t) * Math.max(0, 1 - casualtyReduction);
+  return Math.max(0, rate);
+}
+
+function rollFlawless(win, powerRatio) {
+  if (!win) return false;
+  const dominance = 1 - evennessOf(powerRatio);
+  return Math.random() < (FLAWLESS_BASE + FLAWLESS_DOMINANCE_BONUS * dominance);
+}
+
+// Applies a selected consumable's effect (server/itemData.js mirrors the
+// client's effect fields -- see that file's header) and consumes one
+// charge. Never trusts an effect value from the request itself, only the
+// server's own catalog, and only once ownership of a real charge is
+// confirmed.
+async function resolveBattleItem(playerId, itemId) {
+  const none = { atkMult: 1, winChanceBonus: 0, casualtyReduction: 0, usedItem: null };
+  if (!itemId) return none;
+  const catalogItem = ITEM_CATALOG[itemId];
+  if (!catalogItem || catalogItem.itemCategory !== 'consumable' || !catalogItem.effect) return none;
+
+  const row = await db.get(
+    'SELECT * FROM items WHERE player_id = ? AND item_id = ? AND qty > 0',
+    [playerId, itemId]
+  );
+  if (!row) return none;
+
+  const e = catalogItem.effect;
+  if (row.qty <= 1) await db.run('DELETE FROM items WHERE id = ?', [row.id]);
+  else              await db.run('UPDATE items SET qty = qty - 1 WHERE id = ?', [row.id]);
+
+  return {
+    // unitTypeBonus (cavalry_spurs) is applied as a flat attack boost --
+    // there's no per-unit archetype tag server-side yet to restrict it to.
+    atkMult: 1 + (e.atkBoost || 0) + (e.unitTypeBonus?.atkBoost || 0),
+    winChanceBonus: e.winChanceBoost || 0,
+    casualtyReduction: e.casualtyReduction || 0,
+    usedItem: { id: itemId, name: catalogItem.name, qty: catalogItem.qty, effect: e },
+  };
+}
+
 router.post('/battle', async (req, res) => {
   try {
-    const { targetId } = req.body;
+    const { targetId, units, itemId } = req.body;
     const targetIdInt = parseInt(targetId);
     if (!targetIdInt) return res.status(400).json({ error: 'targetId required.' });
 
@@ -452,9 +542,45 @@ router.post('/battle', async (req, res) => {
 
     await db.run('UPDATE players SET turns = turns - 3 WHERE id = ?', [attacker.id]);
 
-    const winChance = attacker.power / (attacker.power + (defender.power || 1) * 0.8);
+    const { atkMult, winChanceBonus, casualtyReduction, usedItem } = await resolveBattleItem(attacker.id, itemId);
+
+    const effectiveAtkPower = attacker.power * atkMult;
+    let winChance = effectiveAtkPower / (effectiveAtkPower + (defender.power || 1) * 0.8);
+    winChance = Math.min(0.95, Math.max(0.05, winChance + winChanceBonus));
     const win = Math.random() < winChance;
     const powerRatio = defender.power / (attacker.power || 1);
+
+    // ── Casualties: only the attacker's own committed units are at risk.
+    // `units` (unitId -> qty) is the raid modal's selection, which
+    // pre-fills the player's whole army by default -- trust it only up
+    // to what's actually owned per row, and fall back to the whole army
+    // when no selection came through at all (still capped by ownership).
+    const armyRows = await db.all('SELECT * FROM army WHERE player_id = ?', [attacker.id]);
+    const hasSelection = units && typeof units === 'object' && Object.values(units).some(q => Number(q) > 0);
+    // See rollFlawless's comment above: this is what actually makes a
+    // Flawless win possible once the committed force is bigger than a
+    // handful of units, instead of just the proportional rate's own floor.
+    const casualtyRate = rollFlawless(win, powerRatio) ? 0 : rollCasualtyRate(win, powerRatio, casualtyReduction);
+    const casualties = {};
+    let totalCasualties = 0;
+    for (const row of armyRows) {
+      const owned = row.quantity || 0;
+      if (owned <= 0) continue;
+      const committed = hasSelection
+        ? Math.max(0, Math.min(owned, Math.floor(Number(units[row.unit_id]) || 0)))
+        : owned;
+      if (committed <= 0) continue;
+      const lost = Math.min(owned, Math.round(committed * casualtyRate));
+      if (lost <= 0) continue;
+      const lookupFaction = row.is_merc && row.merc_faction ? FACTIONS[row.merc_faction] : FACTIONS[attacker.faction];
+      const unitDef = lookupFaction?.units.find(u => u.id === row.unit_id);
+      casualties[row.unit_id] = { lost, original: owned, name: unitDef?.name || row.unit_id };
+      totalCasualties += lost;
+      await db.run(
+        `UPDATE army SET quantity = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, quantity - ?) WHERE player_id = ? AND unit_id = ?`,
+        [lost, attacker.id, row.unit_id]
+      );
+    }
 
     let result;
     if (win) {
@@ -473,9 +599,10 @@ router.post('/battle', async (req, res) => {
         'INSERT INTO battle_log (attacker_id, defender_id, result, gold_change, mana_change, land_change) VALUES (?, ?, ?, ?, ?, ?)',
         [attacker.id, defender.id, 'victory', goldGain, manaGain, landGain]
       );
-      const msg = `Victory over ${defender.name}! Plundered +${goldGain}g, +${manaGain}m, seized ${landGain} acres.`;
+      const msg = `Victory over ${defender.name}! Plundered +${goldGain}g, +${manaGain}m, seized ${landGain} acres.`
+        + (totalCasualties > 0 ? ` Lost ${totalCasualties} unit${totalCasualties > 1 ? 's' : ''} in the clash.` : '');
       await logEvent(attacker.id, msg, 'battle_win');
-      result = { win: true, goldGain, manaGain, landGain, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, message: msg };
+      result = { win: true, goldGain, manaGain, landGain, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, casualties, totalCasualties, usedItem, message: msg };
     } else {
       const goldLoss = Math.round(attacker.gold * 0.08);
       const manaLoss = Math.round(attacker.mana * 0.05);
@@ -487,11 +614,15 @@ router.post('/battle', async (req, res) => {
         'INSERT INTO battle_log (attacker_id, defender_id, result, gold_change, mana_change, land_change) VALUES (?, ?, ?, ?, ?, ?)',
         [attacker.id, defender.id, 'defeat', -goldLoss, -manaLoss, 0]
       );
-      const msg = `Defeated by ${defender.name}. Lost ${goldLoss}g and ${manaLoss}m.`;
+      const msg = `Defeated by ${defender.name}. Lost ${goldLoss}g and ${manaLoss}m`
+        + (totalCasualties > 0 ? `, and ${totalCasualties} unit${totalCasualties > 1 ? 's' : ''} in the retreat.` : '.');
       await logEvent(attacker.id, msg, 'battle_loss');
-      result = { win: false, goldLoss, manaLoss, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, message: msg };
+      result = { win: false, goldLoss, manaLoss, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, casualties, totalCasualties, usedItem, message: msg };
     }
 
+    // Recomputes power from the DB, which now reflects any army losses
+    // above as well as the land change -- a costly win leaves the
+    // attacker measurably weaker for their next fight, not just richer.
     await updatePower(attacker.id);
     res.json({ ok: true, ...result });
   } catch (err) {
