@@ -1286,31 +1286,47 @@ const TURNS_PER_HOUR = 30; // 1 turn / 2 min, matches server/jobs.js
 // whose income has outgrown that constant gets a ceiling that keeps
 // pace with them instead of clamping every run down to the same number
 // regardless of how big their economy has actually gotten.
+// Widened 2026-08-28: players reported defaulting to Grand Caravan almost
+// every time because it "seemed most resource efficient" and even then not
+// feeling like enough gold to fund their other actions. The old ranges
+// (e.g. caravan 6-13x income) were narrow enough that every tier behaved
+// like a near-guaranteed multiplier rather than a real bet -- there was
+// nothing to actually weigh, just an obviously-best answer (more turns =
+// more return, always), which is exactly what made every other tier feel
+// like a waste of turns by comparison. Two changes: (1) each tier's
+// incomeTurnsMin/Max spread is roughly 2.5-3x wider than before, so a run
+// can now genuinely disappoint or genuinely jackpot -- the choice is a
+// real gamble, not arithmetic; (2) the average payout is raised ~15-25%
+// (see the new midpoints below vs. the old ones) so a typical run actually
+// covers more of what build/recruit costs, instead of every run --
+// including "good" ones -- feeling thin. Caps (maxGold/maxGoldMult etc.)
+// are raised to match the new higher ceilings so a player with real income
+// doesn't just get clamped back down to the old numbers.
 const RESOURCE_TIERS = {
   peddler: {
     name: "Peddler's Cart",
     turnCost: 1,
-    incomeTurnsMin: 0.6, incomeTurnsMax: 1.4,
-    minGold: 8,  maxGold: 180,  maxGoldMult: 20,
-    minMana: 2,  maxMana: 60,   maxManaMult: 20,
+    incomeTurnsMin: 0.25, incomeTurnsMax: 2.25, // was 0.6-1.4 (avg 1.0 -> 1.25)
+    minGold: 8,  maxGold: 260,  maxGoldMult: 30,
+    minMana: 2,  maxMana: 90,   maxManaMult: 30,
     itemChance: 0.04, // 1 in 25
     itemPoolEnd: 4,   // cheapest 4 consumables (see game.js consumablePool())
   },
   smuggler: {
     name: "Smuggler's Route",
     turnCost: 3,
-    incomeTurnsMin: 2.2, incomeTurnsMax: 4.5,
-    minGold: 30, maxGold: 650,  maxGoldMult: 18,
-    minMana: 8,  maxMana: 220,  maxManaMult: 18,
+    incomeTurnsMin: 1.0, incomeTurnsMax: 6.5, // was 2.2-4.5 (avg 3.35 -> 3.75)
+    minGold: 30, maxGold: 900,  maxGoldMult: 25,
+    minMana: 8,  maxMana: 300,  maxManaMult: 25,
     itemChance: 0.10, // 1 in 10
     itemPoolEnd: 8,
   },
   caravan: {
     name: 'Grand Caravan',
     turnCost: 8,
-    incomeTurnsMin: 6, incomeTurnsMax: 13,
-    minGold: 90, maxGold: 1800, maxGoldMult: 16,
-    minMana: 25, maxMana: 600,  maxManaMult: 16,
+    incomeTurnsMin: 3.5, incomeTurnsMax: 19, // was 6-13 (avg 9.5 -> 11.25)
+    minGold: 90, maxGold: 2600, maxGoldMult: 24,
+    minMana: 25, maxMana: 880,  maxManaMult: 24,
     itemChance: 0.18, // ~1 in 5.5
     itemPoolEnd: 12,  // full consumable list -- only the top tier reaches it
   },
