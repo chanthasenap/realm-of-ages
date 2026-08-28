@@ -23,6 +23,9 @@ const API = window.API = {
   logout:   ()                      => API.post('/api/auth/logout'),
   me:       ()                      => API.get('/api/auth/me'),
 
+  // Dev tools (restricted server-side to the creator's own test account)
+  devResetAccount: () => API.post('/api/dev/reset-account'),
+
   // Game
   gameData:    ()           => API.get('/api/gamedata'),
   state:       ()           => API.get('/api/game/state'),

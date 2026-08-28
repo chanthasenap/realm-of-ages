@@ -12,6 +12,17 @@ let _turnTimer  = null;
 let _secToNext  = 120;
 let _selectedFaction = null;
 let _currentPanel = 'overview';
+let _myEmail = null;
+
+// Dev-only reset tool (see server/routes/dev.js) — restricted to this one
+// account. Shown here purely so the button doesn't flash for other testers;
+// the real restriction is enforced server-side regardless of this check.
+const DEV_RESET_EMAIL = 'chanthasena.peter@gmail.com';
+function updateDevResetButton() {
+  const btn = document.getElementById('btn-dev-reset');
+  if (!btn) return;
+  btn.style.display = (_myEmail && _myEmail.toLowerCase().trim() === DEV_RESET_EMAIL) ? 'inline-flex' : 'none';
+}
 
 // ── Utilities ──────────────────────────────────────────────────────
 function showScreen(id) {
@@ -53,6 +64,8 @@ async function initApp() {
   try {
     const me = await API.me();
     if (me.ok) {
+      _myEmail = me.player.email;
+      updateDevResetButton();
       if (me.needsFaction) {
         showScreen('faction');
         buildFactionGrid();
@@ -95,6 +108,8 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   setLoading(btn, true);
   try {
     const res = await API.login(email, pass);
+    _myEmail = res.email;
+    updateDevResetButton();
     if (res.needsFaction) { showScreen('faction'); buildFactionGrid(); }
     else await enterGame();
   } catch(e) {
@@ -110,7 +125,9 @@ document.getElementById('btn-register').addEventListener('click', async () => {
   showError('reg-err', '');
   setLoading(btn, true);
   try {
-    await API.register(name, email, pass);
+    const res = await API.register(name, email, pass);
+    _myEmail = res.email;
+    updateDevResetButton();
     showScreen('faction');
     buildFactionGrid();
   } catch(e) {
@@ -129,8 +146,24 @@ document.getElementById('btn-register').addEventListener('click', async () => {
 document.getElementById('btn-logout').addEventListener('click', async () => {
   clearInterval(_turnTimer);
   await API.logout();
-  GS = null; _selectedFaction = null;
+  GS = null; _selectedFaction = null; _myEmail = null;
+  updateDevResetButton();
   showScreen('landing');
+});
+
+// Dev: wipe test account entirely (restricted server-side — see server/routes/dev.js)
+document.getElementById('btn-dev-reset').addEventListener('click', async () => {
+  if (!confirm('This permanently deletes this account and all its progress, so you can register again with the same email. Continue?')) return;
+  try {
+    clearInterval(_turnTimer);
+    await API.devResetAccount();
+    GS = null; _selectedFaction = null; _myEmail = null;
+    updateDevResetButton();
+    showScreen('landing');
+    toast('Test account wiped. Register again whenever you\'re ready.');
+  } catch(e) {
+    toast('⚠ ' + e.message);
+  }
 });
 
 // ── Faction select ─────────────────────────────────────────────────
@@ -580,3 +613,4 @@ document.querySelectorAll('.nav-item').forEach(item => {
 });
 
 // Boot
+initApp();
