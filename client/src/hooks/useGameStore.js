@@ -75,6 +75,32 @@ function normalizeMerc(row) {
   return { ...uDef, id: row.unitId, unitId: row.unitId, factionId: row.factionId, factionName: mercFaction.name, factionColor: mercFaction.color, quantity: row.quantity || 0 }
 }
 
+// Builds the real options object generateMercListings() expects (see the
+// long comment on that function for the bug this replaces -- the two call
+// sites below used to pass just `p.faction`, a bare string, so every field
+// silently fell back to its hardcoded default on every single call).
+// playerAvgUnitTier is the qty-weighted average tier of the player's own
+// NATIVE units only: gs.army is keyed by unit_id and also includes hired
+// mercs, but a merc's unit_id belongs to a foreign faction's roster, so it
+// never matches an id in the player's own faction.units list and is
+// naturally excluded here without needing to cross-reference gs.mercs.
+function mercParams(player, gs) {
+  const faction = player?.faction ? FACTIONS[player.faction] : null
+  let totalQty = 0, weightedTierSum = 0
+  if (faction?.units && gs?.army) {
+    for (const u of faction.units) {
+      const qty = gs.army[u.id] || 0
+      if (qty > 0) { totalQty += qty; weightedTierSum += u.tier * qty }
+    }
+  }
+  return {
+    playerFaction: player?.faction,
+    playerGoldPerTurn: gs?.economy?.goldNet || 50,
+    playerAvgUnitTier: totalQty > 0 ? weightedTierSum / totalQty : 0,
+    playerArmySize: totalQty,
+  }
+}
+
 export const useGameStore = create(
   persist(
     (set, get) => ({
@@ -190,12 +216,12 @@ export const useGameStore = create(
 
       initMercListings: () => {
         const p=get().player; if(!p?.faction) return
-        set({mercListings:generateMercListings(p.faction),mercRefreshAt:Date.now()+MERC_REFRESH_INTERVAL_MS})
+        set({mercListings:generateMercListings(mercParams(p, get().gameState)),mercRefreshAt:Date.now()+MERC_REFRESH_INTERVAL_MS})
       },
       refreshMercListings: () => {
-        const p=get().player; const gs=get().gameState; const cost=calcMercRefreshCost(gs?.goldPerTurn||50)
+        const p=get().player; const gs=get().gameState; const cost=calcMercRefreshCost(gs?.economy?.goldNet||50)
         if(!p?.faction||(gs?.gold||0)<cost) return {success:false,message:`Need ${cost}g`}
-        set(s=>({mercListings:generateMercListings(p.faction),mercRefreshAt:Date.now()+MERC_REFRESH_INTERVAL_MS,gameState:{...s.gameState,gold:(s.gameState?.gold||0)-cost}}))
+        set(s=>({mercListings:generateMercListings(mercParams(p, s.gameState)),mercRefreshAt:Date.now()+MERC_REFRESH_INTERVAL_MS,gameState:{...s.gameState,gold:(s.gameState?.gold||0)-cost}}))
         return {success:true,cost}
       },
       // Used to just mutate local gameState directly and never told the
