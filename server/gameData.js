@@ -1280,13 +1280,19 @@ function calcEconomy(player, buildings, army, factionId) {
 // ITEM_CATALOG (this file intentionally has no item-catalog dependency).
 const TURNS_PER_HOUR = 30; // 1 turn / 2 min, matches server/jobs.js
 
+// maxGoldMult/maxManaMult: the real ceiling for a tier is
+// max(the old flat constant, perTurn * mult) -- so a new player sees
+// exactly the old fixed cap (nothing changes for them), but a player
+// whose income has outgrown that constant gets a ceiling that keeps
+// pace with them instead of clamping every run down to the same number
+// regardless of how big their economy has actually gotten.
 const RESOURCE_TIERS = {
   peddler: {
     name: "Peddler's Cart",
     turnCost: 1,
     incomeTurnsMin: 0.6, incomeTurnsMax: 1.4,
-    minGold: 8,  maxGold: 180,
-    minMana: 2,  maxMana: 60,
+    minGold: 8,  maxGold: 180,  maxGoldMult: 20,
+    minMana: 2,  maxMana: 60,   maxManaMult: 20,
     itemChance: 0.04, // 1 in 25
     itemPoolEnd: 4,   // cheapest 4 consumables (see game.js consumablePool())
   },
@@ -1294,8 +1300,8 @@ const RESOURCE_TIERS = {
     name: "Smuggler's Route",
     turnCost: 3,
     incomeTurnsMin: 2.2, incomeTurnsMax: 4.5,
-    minGold: 30, maxGold: 650,
-    minMana: 8,  maxMana: 220,
+    minGold: 30, maxGold: 650,  maxGoldMult: 18,
+    minMana: 8,  maxMana: 220,  maxManaMult: 18,
     itemChance: 0.10, // 1 in 10
     itemPoolEnd: 8,
   },
@@ -1303,8 +1309,8 @@ const RESOURCE_TIERS = {
     name: 'Grand Caravan',
     turnCost: 8,
     incomeTurnsMin: 6, incomeTurnsMax: 13,
-    minGold: 90, maxGold: 1800,
-    minMana: 25, maxMana: 600,
+    minGold: 90, maxGold: 1800, maxGoldMult: 16,
+    minMana: 25, maxMana: 600,  maxManaMult: 16,
     itemChance: 0.18, // ~1 in 5.5
     itemPoolEnd: 12,  // full consumable list -- only the top tier reaches it
   },
@@ -1319,9 +1325,11 @@ function calcResourceTierReward(tierKey, player, buildings, army, factionId) {
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
   const luck = Math.random();
   const mult = tier.incomeTurnsMin + luck * (tier.incomeTurnsMax - tier.incomeTurnsMin);
+  const goldCap = Math.max(tier.maxGold, perTurnGold * tier.maxGoldMult);
+  const manaCap = Math.max(tier.maxMana, perTurnMana * tier.maxManaMult);
   return {
-    goldBonus: clamp(perTurnGold * mult, tier.minGold, tier.maxGold),
-    manaBonus: clamp(perTurnMana * mult, tier.minMana, tier.maxMana),
+    goldBonus: clamp(perTurnGold * mult, tier.minGold, goldCap),
+    manaBonus: clamp(perTurnMana * mult, tier.minMana, manaCap),
     turnCost: tier.turnCost,
     luck,
   };
@@ -1330,7 +1338,8 @@ function calcResourceTierReward(tierKey, player, buildings, army, factionId) {
 // Preview ranges for every tier at once, for getFullState() -- lets the
 // client show "roughly X-Y gold" on each card without exposing the luck
 // roll itself. Recomputed from the player's live economy on every state
-// fetch, so the preview drifts (intentionally) as their income grows.
+// fetch, so the preview drifts (intentionally) as their income grows,
+// including the income-scaled ceiling above.
 function calcResourceTierPreviews(player, buildings, army, factionId) {
   const eco = calcEconomy(player, buildings, army, factionId);
   const perTurnGold = Math.max(0, eco.goldNet) / TURNS_PER_HOUR;
@@ -1338,12 +1347,14 @@ function calcResourceTierPreviews(player, buildings, army, factionId) {
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
   const out = {};
   for (const [key, tier] of Object.entries(RESOURCE_TIERS)) {
+    const goldCap = Math.max(tier.maxGold, perTurnGold * tier.maxGoldMult);
+    const manaCap = Math.max(tier.maxMana, perTurnMana * tier.maxManaMult);
     out[key] = {
       turnCost: tier.turnCost,
-      minGold: clamp(perTurnGold * tier.incomeTurnsMin, tier.minGold, tier.maxGold),
-      maxGold: clamp(perTurnGold * tier.incomeTurnsMax, tier.minGold, tier.maxGold),
-      minMana: clamp(perTurnMana * tier.incomeTurnsMin, tier.minMana, tier.maxMana),
-      maxMana: clamp(perTurnMana * tier.incomeTurnsMax, tier.minMana, tier.maxMana),
+      minGold: clamp(perTurnGold * tier.incomeTurnsMin, tier.minGold, goldCap),
+      maxGold: clamp(perTurnGold * tier.incomeTurnsMax, tier.minGold, goldCap),
+      minMana: clamp(perTurnMana * tier.incomeTurnsMin, tier.minMana, manaCap),
+      maxMana: clamp(perTurnMana * tier.incomeTurnsMax, tier.minMana, manaCap),
       itemChance: tier.itemChance,
     };
   }
