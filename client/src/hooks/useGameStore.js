@@ -11,6 +11,20 @@ const _FIRST = ['Aeron','Aldric','Azura','Bastian','Caelum','Daenar','Elowen','F
 const _LAST  = ['Ironblood','Moonweave','Deepcurrent','Starwatcher','Ashveil','Brightmantle','Coldforge','Emberfist','Frostmark','Galeborn','Ironveil','Jadewing','Kindlecrest','Nightfall','Pyrebrand','Shadowmend','Tidecaller']
 const _FACS  = ['flame','nature','tide','celestial','undead']
 function _rng(seed) { let s=seed; return ()=>{ s=(s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff } }
+
+// fetchGameState() is called from several places that can overlap in time --
+// the 20s background poll in Game.jsx, the initial-mount fetch, and every
+// action helper (explore/build/recruit/battle/devRefillTurns/...) all call
+// it independently. Network responses aren't guaranteed to arrive in the
+// order the requests were sent: e.g. the poll fires a GET right before the
+// player clicks "refill turns" -- that older, slower GET (still carrying
+// the pre-refill turn count) can resolve *after* the refill's own
+// post-refill GET, silently overwriting the just-refilled UI back down a
+// moment later ("turns increase for a second, then re-empty"). This counter
+// tags each call and only lets the most recently-*issued* call's response
+// actually update the store, so a late-arriving stale response is dropped
+// instead of clobbering newer data.
+let gameStateFetchSeq = 0
 const MOCK_PLAYERS = Array.from({length:500},(_,i)=>{
   const r=_rng(i*7919+31337)
   const faction=_FACS[Math.floor(r()*_FACS.length)]
@@ -91,8 +105,14 @@ export const useGameStore = create(
       },
 
       fetchGameState: async () => {
+        const mySeq = ++gameStateFetchSeq
         try {
           const data = await api.state()
+          // A newer fetchGameState() call was issued while this one was in
+          // flight -- its response (once it lands) is the one that should
+          // win, so drop this now-stale response rather than overwrite
+          // whatever the newer call already applied (or is about to).
+          if (mySeq !== gameStateFetchSeq) return
           const player = get().player
           const f = player?.faction ? FACTIONS[player.faction] : null
           let auctionItems = data.auctionItems || []
