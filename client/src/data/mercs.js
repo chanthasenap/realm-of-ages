@@ -4,7 +4,11 @@ export const MERC_REFRESH_INTERVAL_MS = 4 * 60 * 60 * 1000 // 4 hours
 
 export const MERC_UNBOUND_PENALTY = 0.85
 
-// Lore-friendly tiers for contract size
+// Lore-friendly tiers for contract size. costMultiplier is the premium a
+// merc costs over recruiting that SAME unit natively at home (see
+// generateMercListings below) -- a skirmisher-tier hire costs the same as
+// building the hall yourself, climbing to a 2x "skip the requirements"
+// premium for an elite band.
 export const CONTRACT_TIERS = [
   { id: 'skirmisher', label: 'Skirmisher Contract', unitTiers: [1, 2], qtyRange: [1, 3], costMultiplier: 1.0 },
   { id: 'company',    label: 'Company Contract',    unitTiers: [2, 3], qtyRange: [3, 8], costMultiplier: 1.3 },
@@ -51,8 +55,24 @@ function pick(arr) {
  * worse (see MERC_UNBOUND_PENALTY) copy of something already recruitable
  * at home.
  *
+ * Pricing note: costPerUnit used to be `playerGoldPerTurn * 2.5`, scaled
+ * further by a per-tier multiplier ([1, 1.8, 3.2, 6, 12]) and the
+ * contract's own costMultiplier -- tying merc prices to the player's
+ * CURRENT INCOME rather than to the unit being hired. That compounded
+ * badly: once minMercTier climbed (see below) a player with any kind of
+ * established economy (~900g/turn) would see a single tier-5 elite merc
+ * priced at 50,000+ gold -- more than GUILD_CREATION_COST (50,000), i.e.
+ * more expensive than founding an entire guild for one unit. Pricing is
+ * now anchored to the unit's own native recruit cost (unit.goldCost --
+ * the same tier-tuned number used when recruiting it at home in its own
+ * faction) times the contract's markup, so a merc reads as "pay a
+ * premium to hire this unit without its faction/hall requirements," not
+ * "price scales with how well the game is going for you." A tier-5
+ * elite (e.g. a 6,400g native Lich) now costs roughly 11,000-15,000g --
+ * a real premium, but nowhere near guild-founding money.
+ *
  * @param {object} params
- * @param {number} params.playerGoldPerTurn  - gold/turn income
+ * @param {number} params.playerGoldPerTurn  - unused for pricing now (kept for signature stability); see note above
  * @param {number} params.playerAvgUnitTier  - qty-weighted average tier of the player's own native army (0 if no army yet)
  * @param {number} params.playerArmySize     - total units in army
  * @param {string} params.playerFaction      - player's faction id (excluded from the merc pool)
@@ -83,11 +103,6 @@ export function generateMercListings({ playerGoldPerTurn = 50, playerAvgUnitTier
   // nothing.
   if (validSlots.length === 0) validSlots.push({ contract: CONTRACT_TIERS[CONTRACT_TIERS.length - 1], tier: 5 })
 
-  // Base cost per unit: roughly 3x what the player earns per turn, scaled
-  // further by tier below -- a richer economy sees pricier mercs, not
-  // cheaper-feeling ones.
-  const baseCostPerUnit = Math.max(200, Math.round(playerGoldPerTurn * 2.5))
-
   const listings = []
   const usedKeys = new Set()
   let attempts = 0
@@ -111,8 +126,10 @@ export function generateMercListings({ playerGoldPerTurn = 50, playerAvgUnitTier
     if (usedKeys.has(key)) continue
     usedKeys.add(key)
 
-    const tierMult = [0, 1, 1.8, 3.2, 6, 12][unitTier] || 1
-    const costPerUnit = Math.round(baseCostPerUnit * tierMult * contract.costMultiplier * (0.85 + Math.random() * 0.3))
+    // Anchored to the unit's own native recruit cost (see pricing note
+    // above) -- a real premium for skipping the faction/hall requirement,
+    // not a multiplier on the player's current income.
+    const costPerUnit = Math.round((unit.goldCost || 0) * contract.costMultiplier * (0.9 + Math.random() * 0.2))
     const totalCost = costPerUnit * qty
 
     listings.push({
