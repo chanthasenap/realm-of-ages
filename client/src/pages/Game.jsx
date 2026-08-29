@@ -1706,8 +1706,14 @@ export default function Game() {
         </div>
 
         <div className={s.exploreCategoryRow}>
-          <div>
-            <div className={s.sectionLabel} style={{marginTop:2}}>Territory — claim acres</div>
+          <div className={s.categoryPanel} style={{'--cat':'var(--green)'}}>
+            <div className={s.categoryPanelHead}>
+              <div className={s.categoryPanelIcon}><IconMap size={16}/></div>
+              <div>
+                <div className={s.categoryPanelTitle}>Territory</div>
+                <div className={s.categoryPanelSub}>Claim acres</div>
+              </div>
+            </div>
             <div className={s.ucardGrid}>
               <ExploreCard icon={<IconCompass size={52} color="var(--green)" opacity={0.65}/>}   heroBg="rgba(109,204,170,0.08)" fc="var(--green)" imageId="scout-party"    name="Scout Party"    turnCost={1} goldBonus={5}  manaBonus={0}  desc="Claim 5–15 acres with a light scouting force." blockMsg={turns < 1  ? `Need ${1  - turns} more turns` : null} onClick={() => doExplore('scout', 'Scout Party')} disabled={turns < 1  || loading} />
               <ExploreCard icon={<IconMapSearch size={52} color="var(--green)" opacity={0.65}/>} heroBg="rgba(109,204,170,0.13)" fc="var(--green)" imageId="expedition"      name="Expedition"     turnCost={3} goldBonus={20} manaBonus={0}  desc="Send a full expedition to claim 20–50 acres." blockMsg={turns < 3  ? `Need ${3  - turns} more turns` : null} onClick={() => doExplore('expedition', 'Expedition')} disabled={turns < 3  || loading} />
@@ -1715,8 +1721,14 @@ export default function Game() {
             </div>
           </div>
 
-          <div>
-            <div className={s.sectionLabel} style={{marginTop:2}}>Fortune — gold &amp; mana, no acres</div>
+          <div className={s.categoryPanel} style={{'--cat':'var(--gold)'}}>
+            <div className={s.categoryPanelHead}>
+              <div className={s.categoryPanelIcon}><IconCoin size={16}/></div>
+              <div>
+                <div className={s.categoryPanelTitle}>Fortune</div>
+                <div className={s.categoryPanelSub}>Gold &amp; mana, no acres</div>
+              </div>
+            </div>
             <div className={s.ucardGrid}>
               <ResourceExploreCard tierKey="peddler"  icon={<IconBackpack size={52} color="var(--green)" opacity={0.65}/>} fc="var(--green)" imageId="peddlers-cart"   name="Peddler's Cart"   turnCost={1} preview={gs?.resourceTiers?.peddler}  desc="A quick, low-risk trade run — small but reliable gold and mana, with a rare chance of a stray item." onClick={() => doExplore('peddler', "Peddler's Cart")} disabled={turns < 1 || loading} blockMsg={turns < 1 ? `Need ${1 - turns} more turns` : null} />
               <ResourceExploreCard tierKey="smuggler" icon={<IconTruck size={52}    color="var(--gold)"  opacity={0.65}/>} fc="var(--gold)"  imageId="smugglers-route" name="Smuggler's Route" turnCost={3} preview={gs?.resourceTiers?.smuggler} desc="A riskier back-road run through bandit country — bigger hauls, and better odds of turning up a usable item." onClick={() => doExplore('smuggler', "Smuggler's Route")} disabled={turns < 3 || loading} blockMsg={turns < 3 ? `Need ${3 - turns} more turns` : null} />
@@ -1901,15 +1913,31 @@ export default function Game() {
           <div className={s.ph} style={{marginBottom:10}}><div className={s.ptitle}>Construction</div><div className={s.pdesc}>Build military structures to unlock unit tiers, or raise resource structures to boost income.</div></div>
           <div className={s.bldSplit}>
             <div className={s.bldSplitMil}>
-              <div className={s.sectionLabel} style={{marginTop:0}}>Military Buildings</div>
-              <div className={s.bldMil5Grid}>
-                {milBuildings.map(b => renderBldCard(b, f.color))}
+              <div className={s.categoryPanel} style={{'--cat': f.color}}>
+                <div className={s.categoryPanelHead}>
+                  <div className={s.categoryPanelIcon}><IconSword size={16}/></div>
+                  <div>
+                    <div className={s.categoryPanelTitle}>Military Buildings</div>
+                    <div className={s.categoryPanelSub}>Unlock &amp; upgrade unit halls</div>
+                  </div>
+                </div>
+                <div className={s.bldMil5Grid}>
+                  {milBuildings.map(b => renderBldCard(b, f.color))}
+                </div>
               </div>
             </div>
             <div className={s.bldSplitRes}>
-              <div className={s.sectionLabel} style={{marginTop:0}}>Resource Buildings</div>
-              <div className={s.bldResCol}>
-                {resBuildings.map(b => renderBldCard(b, (b.goldRate?.[1] || 0) > 0 ? '#c9a84c' : '#a89cf0'))}
+              <div className={s.categoryPanel} style={{'--cat': 'var(--gold)'}}>
+                <div className={s.categoryPanelHead}>
+                  <div className={s.categoryPanelIcon}><IconCoin size={16}/></div>
+                  <div>
+                    <div className={s.categoryPanelTitle}>Resource Buildings</div>
+                    <div className={s.categoryPanelSub}>Boost gold &amp; mana income</div>
+                  </div>
+                </div>
+                <div className={s.bldResCol}>
+                  {resBuildings.map(b => renderBldCard(b, (b.goldRate?.[1] || 0) > 0 ? '#c9a84c' : '#a89cf0'))}
+                </div>
               </div>
             </div>
           </div>

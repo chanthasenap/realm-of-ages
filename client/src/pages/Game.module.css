@@ -368,6 +368,58 @@
   margin: 16px 0 10px;
 }
 
+/* ── Category panels ─────────────────────────────────────────────────────
+   Groups like Territory/Fortune (Explore) and Military/Resource (Build)
+   used to be told apart only by a small uppercase .sectionLabel, which
+   reads at ~9px against the near-black background and gets skipped
+   entirely on a quick scan. Wrapping each category in its own tinted,
+   bordered container -- with a colored icon chip and a bold title bar --
+   gives the two groups a real visual boundary instead of just more text.
+   Set --cat on the wrapper to the category's accent color. */
+.categoryPanel {
+  border: 1px solid color-mix(in srgb, var(--cat, var(--border)) 38%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--cat, transparent) 9%, transparent) 0%, transparent 110px),
+    var(--bg3);
+  border-radius: 12px;
+  padding: 14px 14px 16px;
+}
+.categoryPanelHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--cat, transparent) 32%, transparent);
+}
+.categoryPanelIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cat, var(--muted)) 22%, transparent);
+  color: var(--cat, var(--text));
+  flex-shrink: 0;
+}
+.categoryPanelTitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--cat, var(--text));
+  letter-spacing: .01em;
+  line-height: 1.3;
+}
+.categoryPanelSub {
+  font-size: 9.5px;
+  color: var(--muted);
+  letter-spacing: .03em;
+  margin-top: 1px;
+}
+@media (max-width: 600px) {
+  .categoryPanel { padding: 12px 10px 14px; }
+}
+
 .acGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -494,7 +546,7 @@
 }
 .bldResCol {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
 
@@ -755,6 +807,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 4px;
+  min-width: 0;
 }
 .ucardName {
   font-size: 13px;
@@ -763,6 +816,10 @@
   text-shadow: 0 1px 8px rgba(0,0,0,1);
   line-height: 1.2;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ucardRole {
   font-size: 9px;
