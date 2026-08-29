@@ -549,6 +549,19 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
+/* Military cards (5 narrow columns) wrap their cost row and prereq text
+   more than Resource cards (1-2 much wider columns in the 2fr side), so
+   even with identical content the two categories settle at different
+   natural heights and the two panels don't line up along the bottom.
+   Military and Resource sit in separate grids under .bldSplit, so ordinary
+   grid row-stretching only equalizes cards within the SAME grid -- this
+   floor height is what actually lines the two panels up with each other.
+   Set from the tallest real card (a locked military hall with a longer
+   "Requires ... at Level N" line) plus a small buffer, so it only ever
+   pads a shorter card up to match and never clips a taller one. */
+.bldSplit .ucard {
+  min-height: 436px;
+}
 
 .bldMilGrid {
   display: grid;
@@ -702,6 +715,19 @@
     grid-template-columns: 1fr;
     gap: 4px;
   }
+}
+/* Territory cards (ExploreCard) have one less body line than Fortune cards
+   (ResourceExploreCard always shows an item-chance line beneath its cost
+   row), so left uncorrected the two side-by-side grids settle on different
+   row heights and the two columns visibly don't line up. Territory and
+   Fortune sit in separate grid containers (each keeps its own ucardGrid so
+   cards can still wrap independently), so ordinary grid row-stretching
+   can't equalize them -- a shared floor height on the card itself is what
+   actually lines the two columns up. Set from Fortune's real rendered
+   height (3-line body) plus a small buffer for font/zoom variance; it only
+   ever pads Territory's shorter cards up to match, never clips Fortune's. */
+.exploreCategoryRow .ucard {
+  min-height: 328px;
 }
 
 .ucard {
