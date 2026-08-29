@@ -975,6 +975,44 @@
   opacity: .9;
 }
 
+/* ── Faction Hero card (Recruit tab) ─────────────────────────────────────
+   A single, wide, gold-tinted row card rather than a grid tile -- there's
+   only ever one hero per faction (v1), so it reads as a distinct, more
+   important purchase than the unit grid beneath it, not just another card
+   in the same rows/columns. */
+.heroCard {
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--fc, var(--gold)) 10%, var(--bg3)), var(--bg3));
+  border: 1px solid color-mix(in srgb, var(--fc, var(--gold)) 35%, var(--border));
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+@media (max-width: 640px) {
+  .heroCard { flex-direction: column; }
+}
+.heroCardPortrait {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+}
+.heroCardBody { flex: 1; min-width: 0; }
+.heroCardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.heroCardAction {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  min-width: 190px;
+}
+.heroCardAction .ucardBtn { padding: 12px 16px; }
+
 /* keep ubtn for battle panel raid button */
 .ubtn {
   display: flex;
@@ -2579,6 +2617,18 @@
   display: flex; align-items: center; gap: 5px; justify-content: flex-end;
   font-size: 10px; color: var(--silver);
 }
+
+/* Hero toggle row (Step 1) -- default-OFF, disabled-with-reason when the
+   hero can't be brought (design doc §7: optional, visible, never silent). */
+.bcHeroCard { border-color: rgba(201,168,76,.35); margin-bottom: 8px; }
+.bcHeroSwitch {
+  display: flex; align-items: center; gap: 7px; flex-shrink: 0;
+  padding: 7px 12px; border-radius: 7px; font-size: 10px; font-weight: 700;
+  background: rgba(201,168,76,.1); border: 1px solid rgba(201,168,76,.3); color: var(--gold);
+  user-select: none;
+}
+.bcHeroSwitch input { accent-color: var(--gold); cursor: inherit; }
+.bcHeroSwitch[data-disabled="true"] { opacity: .5; }
 
 /* item roster list — vertical stack of horizontal cards */
 .bcItemGrid { display: flex; flex-direction: column; gap: 6px; }

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../hooks/useGameStore.js'
 import { FACTIONS, scaledStats } from '../data/factions.js'
+import { heroMinutesToFull, heroMinutesToRecoverThreshold } from '../data/heroes.js'
 import { RARITY_COLOR, AUCTION_RESTOCK_COST, AUCTION_REFRESH_MS } from '../data/items.js'
 import { calcMercRefreshCost } from '../data/mercs.js'
 import { FactionImage, UnitPortrait, ResourceBuildingImg, ItemArt } from '../components/Portrait.jsx'
@@ -118,7 +119,7 @@ function calcCombatPower(faction, gs, unitSelection = null) {
 }
 
 export default function Game() {
-  const { player, gameState, fetchGameState, explore, build, recruit, battle, buyAuctionItem, refreshAuction, fetchRankings, fetchTargets, logout, devRefillTurns, devResetAccount, addLog, clearLog, guild, guildInvites, createGuild, searchGuilds, acceptInvite, declineInvite, leaveGuild, disbandGuild, sendGuildChat, depositTreasury, promoteMember, demoteMember, kickMember, transferOwnership, updateGuildSettings, invitePlayer, claimStreakReward, purchaseGuildPerk, setPinnedAnnouncement, setGuildGuidelines, mercListings, mercRefreshAt, initMercListings, refreshMercListings, hireMerc } = useGameStore()
+  const { player, gameState, fetchGameState, explore, build, recruit, battle, buyAuctionItem, refreshAuction, fetchRankings, fetchTargets, logout, devRefillTurns, devResetAccount, addLog, clearLog, guild, guildInvites, createGuild, searchGuilds, acceptInvite, declineInvite, leaveGuild, disbandGuild, sendGuildChat, depositTreasury, promoteMember, demoteMember, kickMember, transferOwnership, updateGuildSettings, invitePlayer, claimStreakReward, purchaseGuildPerk, setPinnedAnnouncement, setGuildGuidelines, mercListings, mercRefreshAt, initMercListings, refreshMercListings, hireMerc, recruitHero, resurrectHero } = useGameStore()
   const nav = useNavigate()
   const [panel, setPanel]         = useState('overview')
   const [rankings, setRankings]   = useState([])
@@ -144,6 +145,7 @@ export default function Game() {
   const [bcItemOpen, setBcItemOpen] = useState(false)
   const [bcStep, setBcStep]         = useState(1)  // 1 = units, 2 = item
   const [bcResolving, setBcResolving] = useState(false)  // true while the raid request is in flight
+  const [bcBringHero, setBcBringHero] = useState(false)  // optional -- see hero toggle in Step 1
   const logRef      = useRef(null)
   const rkScrollRef = useRef(null)
   const myRowRef    = useRef(null)
@@ -335,6 +337,35 @@ export default function Game() {
     setLoading(false)
   }
 
+  const doRecruitHero = async () => {
+    if (loading) return
+    setLoading(true)
+    try {
+      const res = await recruitHero()
+      const hThumb = res.hero ? <UnitPortrait unitId={res.hero.id} artType={res.hero.artType} factionColor={f.color} size={36}/> : null
+      addLog({ cls: 'res', icon: 'recruit', msg: res.message || 'Hero recruited!', subtext: `${res.hero?.name} joins your cause` })
+      showToast(`${res.hero?.name} recruited!`, res.hero?.abilityDesc, 'recruit', hThumb)
+    } catch (e) {
+      addLog({ cls: 'err', icon: 'err', msg: 'Hero recruitment failed.' })
+      showToast('Hero recruitment failed', e.message, 'err')
+    }
+    setLoading(false)
+  }
+
+  const doResurrectHero = async () => {
+    if (loading) return
+    setLoading(true)
+    try {
+      const res = await resurrectHero()
+      addLog({ cls: 'res', icon: 'recruit', msg: res.message || 'Hero resurrected.', subtext: 'Resurrection sickness active for 24h — stats reduced until it fades' })
+      showToast(`${res.hero?.name} lives again`, 'Weakened by resurrection sickness for 24h', 'recruit')
+    } catch (e) {
+      addLog({ cls: 'err', icon: 'err', msg: 'Resurrection failed.' })
+      showToast('Resurrection failed', e.message, 'err')
+    }
+    setLoading(false)
+  }
+
   const doHireMerc = async (listing) => {
     if (loading) return
     setLoading(true)
@@ -364,6 +395,7 @@ export default function Game() {
     setBcStep(1)
     setBcItemOpen(false)
     setBcResolving(false)
+    setBcBringHero(false) // always defaults OFF -- bringing the hero is never automatic (design doc §7)
     setBattleConfig({ targetId })
   }
 
@@ -392,7 +424,7 @@ export default function Game() {
     const minDisplay = new Promise(resolve => setTimeout(resolve, 700))
     try {
       const [res] = await Promise.all([
-        battle(targetId, unitSelection, bcItem || null),
+        battle(targetId, unitSelection, bcItem || null, bcBringHero),
         minDisplay,
       ])
       const msg = res.win ? `Victory vs ${res.targetName}` : `Defeat vs ${res.targetName}`
@@ -403,6 +435,18 @@ export default function Game() {
       } else {
         const casualtyNote = res.totalCasualties > 0 ? ` · −${res.totalCasualties} unit${res.totalCasualties > 1 ? 's' : ''} lost` : ''
         showToast(`Defeat — ${res.targetName} prevailed`, `−${res.goldLoss}g · −${res.manaLoss}m${casualtyNote} · regroup and rebuild`, 'lose')
+      }
+      // Hero outcome gets its own, unmissable toast -- a status change this
+      // rare and consequential shouldn't ride along inside the battle
+      // toast's subtext where it's easy to miss (design doc §7).
+      if (res.hero) {
+        if (res.hero.slain) {
+          showToast(`${res.hero.name} has fallen!`, 'Slain in battle — visit the Recruit tab to resurrect them.', 'lose')
+        } else if (res.hero.downed) {
+          showToast(`${res.hero.name} was struck down`, `Survived a Last Stand at ${res.hero.hpAfter}/${res.hero.maxHp} HP — recovering.`, 'lose')
+        } else if (res.hero.leveledUp) {
+          showToast(`${res.hero.name} reached Level ${res.hero.level}!`, `Now ${res.hero.rankTitle} — ${res.hero.hpAfter}/${res.hero.maxHp} HP`, 'win')
+        }
       }
     } catch (e) {
       addLog({ cls: 'err', icon: 'err', msg: 'Battle failed.' })
@@ -1946,11 +1990,26 @@ export default function Game() {
     }
 
     if (panel === 'recruit') {
+      // The hero is a standalone faction purchase, independent of unit
+      // halls -- it renders regardless of whether any building exists yet,
+      // so the "no buildings" empty state below only ever replaces the
+      // unit grid beneath it, never the hero card itself.
+      const heroCard = gs?.hero?.available && (
+        <HeroCard hero={gs.hero} factionColor={f.color} loading={loading}
+          onRecruit={doRecruitHero} onResurrect={doResurrectHero}
+          gold={gold} mana={mana} turns={turns} />
+      )
       const hasBuilding = gs?.buildings && Object.values(gs.buildings).some(v => v > 0)
-      if (!hasBuilding) return <div className={s.empty}><IconBuildingCastle size={40} opacity={0.2}/><p className={s.emptyT}>No buildings yet</p><p className={s.emptyS}>Build a unit hall to unlock recruitment.</p></div>
+      if (!hasBuilding) return (
+        <div className={s.recruitPageWrap}>
+          {heroCard}
+          <div className={s.empty}><IconBuildingCastle size={40} opacity={0.2}/><p className={s.emptyT}>No buildings yet</p><p className={s.emptyS}>Build a unit hall to unlock unit recruitment.</p></div>
+        </div>
+      )
       return (
         <div className={s.recruitPageWrap}>
           <div className={s.ph} style={{marginBottom:10}}><div className={s.ptitle}>Recruit Units</div><div className={s.pdesc}>Each unit requires its own hall. Upgrade the hall to boost ATK & DEF. Mix tiers for army synergy.</div></div>
+          {heroCard}
           <div className={s.ucardGrid}>
             {f.units.map(u => {
               const bldLvl   = gs?.buildings?.[u.req] || 0
@@ -3199,6 +3258,42 @@ export default function Game() {
                   {totalSelected === 0 && (
                     <div className={s.bcTotalRow} style={{ color: 'var(--muted)' }}>Full army will be deployed</div>
                   )}
+
+                  {/* ── Hero toggle: optional, default OFF, disabled+explained
+                      when the hero can't be brought. Never shown if no hero
+                      has been recruited yet -- nothing to toggle. */}
+                  {gs?.hero?.recruited && (() => {
+                    const hero = gs.hero
+                    const eligible = hero.status === 'active'
+                    const hpPct = hero.maxHp ? Math.round((hero.hp / hero.maxHp) * 100) : 0
+                    const reason = hero.status === 'slain'
+                      ? 'Slain — resurrect from the Recruit tab first.'
+                      : hero.status === 'downed'
+                      ? `Recovering — back in the fight in ~${heroMinutesToRecoverThreshold(hero.hp, hero.maxHp)} min.`
+                      : null
+                    const lowHpWarn = eligible && bcBringHero && hpPct <= 25
+                    return (
+                      <>
+                        <div className={`${s.bcUnitCard} ${s.bcHeroCard}`} style={{ marginTop: 10, opacity: eligible ? 1 : 0.6 }}>
+                          <div className={s.bcUnitThumb}><UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={f.color} size={44} /></div>
+                          <div className={s.bcUnitInfo}>
+                            <div className={s.bcUnitName}>{hero.name} <span style={{ fontSize: 8, color: 'var(--muted)', fontWeight: 400 }}>Lv.{hero.level} {hero.rankTitle}</span></div>
+                            <div className={s.bcUnitBar}><div className={s.bcUnitBarFill} style={{ width: `${hpPct}%`, background: hpPct <= 25 ? 'var(--red)' : hpPct <= 60 ? 'var(--gold)' : 'var(--green)' }} /></div>
+                            <div className={s.bcUnitOwned}>{hero.hp} / {hero.maxHp} HP{reason ? ` — ${reason}` : ` — ${hero.abilityName}`}</div>
+                          </div>
+                          <label className={s.bcHeroSwitch} data-disabled={!eligible}>
+                            <input type="checkbox" checked={bcBringHero && eligible} disabled={!eligible} onChange={e => setBcBringHero(e.target.checked)} />
+                            {bcBringHero && eligible ? 'Bringing' : 'Bring hero?'}
+                          </label>
+                        </div>
+                        {lowHpWarn && (
+                          <div className={s.bcTotalRow} style={{ color: 'var(--red)', justifyContent: 'flex-start' }}>
+                            <IconAlertTriangle size={11} /> {hero.name} is at {hero.hp} HP — a loss here risks a Last Stand roll.
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
 
@@ -3359,6 +3454,107 @@ function Stat({ icon, imageId, folder = 'overview', label, value, sub, color, su
       <div style={{fontSize:20,fontWeight:500,color:color||'var(--text)',lineHeight:1}}>{value}</div>
       <div style={{fontSize:9,letterSpacing:2,textTransform:'uppercase',color:'var(--muted)',marginTop:1}}>{label}</div>
       {sub && <div style={{fontSize:10,color:subColor||'var(--muted)',marginTop:1}}>{sub}</div>}
+    </div>
+  )
+}
+// ── Faction Hero card (Recruit tab) ─────────────────────────────────────────
+// Two states: not-yet-recruited (a big one-time purchase CTA, same visual
+// language as a unit card) and recruited (a status panel with HP/XP bars,
+// current stats, and a Resurrect action when slain). See
+// claude/hero-feature-design.md for the full rationale behind every number
+// referenced here -- this component only ever displays what gs.hero
+// (server/routes/game.js buildHeroState) already computed.
+function HeroCard({ hero, factionColor, loading, onRecruit, onResurrect, gold, mana, turns }) {
+  if (!hero?.available) return null
+
+  if (!hero.recruited) {
+    const need = hero.recruitCost
+    const block = gold < need.gold ? `Need ${(need.gold - gold).toLocaleString()}g more`
+      : mana < need.mana ? `Need ${(need.mana - mana).toLocaleString()}m more`
+      : turns < need.turns ? `Need ${need.turns - turns} more turns`
+      : null
+    return (
+      <div className={s.heroCard} style={{ '--fc': factionColor }}>
+        <div className={s.heroCardPortrait}><UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={factionColor} size={96} /></div>
+        <div className={s.heroCardBody}>
+          <div className={s.heroCardTitleRow}>
+            <IconCrown size={13} color="var(--gold)" />
+            <span style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--gold)' }}>Faction Hero</span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{hero.name}, {hero.title}</div>
+          {hero.flavor && <div style={{ fontSize: 11, color: 'var(--muted)', margin: '4px 0 8px', lineHeight: 1.5 }}>{hero.flavor}</div>}
+          <div style={{ display: 'flex', gap: 14, marginBottom: 8, fontSize: 11 }}>
+            <span style={{ color: 'var(--red)' }}>ATK {hero.baseAtk}</span>
+            <span style={{ color: 'var(--green)' }}>DEF {hero.baseDef}</span>
+            <span style={{ color: 'var(--text)' }}>PWR {hero.basePower}</span>
+          </div>
+          <div style={{ fontSize: 11, color: factionColor, marginBottom: 10 }}><IconSparkles size={11} /> {hero.abilityName} — {hero.abilityDesc}</div>
+          <div className={s.ucardCost}>
+            <span style={{ color: 'var(--gold)' }}><IconCoin size={10} /> {need.gold.toLocaleString()}g</span>
+            <span style={{ color: 'var(--mana2)' }}><IconSparkles size={10} /> {need.mana.toLocaleString()}m</span>
+            <span style={{ color: 'var(--muted)' }}>{need.turns} turns · one-time · optional in battle</span>
+          </div>
+        </div>
+        <div className={s.heroCardAction}>
+          {block
+            ? <div className={s.ucardBlocked}>{block}</div>
+            : <AnimBtn className={s.ucardBtn} variant="pop" style={{ background: factionColor + '18', color: factionColor, border: `1px solid ${factionColor}44` }} onClick={onRecruit} disabled={loading}>
+                <AnimatedIcon><IconCrown size={12} /></AnimatedIcon> Recruit Hero
+              </AnimBtn>
+          }
+        </div>
+      </div>
+    )
+  }
+
+  const hpPct = hero.maxHp ? Math.round((hero.hp / hero.maxHp) * 100) : 0
+  const xpPct = hero.xpToNext ? Math.round((hero.xp / hero.xpToNext) * 100) : 0
+  const hpColor = hero.status === 'slain' ? 'var(--muted)' : hpPct <= 25 ? 'var(--red)' : hpPct <= 60 ? 'var(--gold)' : 'var(--green)'
+  const statusLabel = hero.status === 'slain' ? 'Slain' : hero.status === 'downed' ? 'Recovering' : 'Active'
+  const statusColor = hero.status === 'slain' ? 'var(--red)' : hero.status === 'downed' ? 'var(--gold)' : 'var(--green)'
+  const rc = hero.resurrectCost
+  const resBlock = rc && (gold < rc.gold ? `Need ${(rc.gold - gold).toLocaleString()}g more` : mana < rc.mana ? `Need ${(rc.mana - mana).toLocaleString()}m more` : null)
+  const recoverNote = hero.status === 'downed' ? `Back in the fight in ~${heroMinutesToRecoverThreshold(hero.hp, hero.maxHp)} min` : null
+
+  return (
+    <div className={s.heroCard} style={{ '--fc': factionColor }}>
+      <div className={s.heroCardPortrait}><UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={factionColor} size={96} /></div>
+      <div className={s.heroCardBody}>
+        <div className={s.heroCardTitleRow}>
+          <IconCrown size={13} color="var(--gold)" />
+          <span style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--gold)' }}>Lv.{hero.level} {hero.rankTitle}</span>
+          <span style={{ fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: statusColor, marginLeft: 'auto', border: `1px solid ${statusColor}55`, padding: '1px 7px', borderRadius: 8 }}>{statusLabel}</span>
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{hero.name}, {hero.title}</div>
+
+        <div style={{ margin: '9px 0 3px', display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--muted)' }}><span>HP</span><span>{hero.hp} / {hero.maxHp}</span></div>
+        <div className={s.bcUnitBar} style={{ height: 5 }}><div className={s.bcUnitBarFill} style={{ width: `${hpPct}%`, background: hpColor }} /></div>
+
+        {hero.status !== 'slain' && <>
+          <div style={{ margin: '8px 0 3px', display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--muted)' }}><span>XP {hero.level < hero.maxLevel ? '' : '(max level)'}</span><span>{hero.level < hero.maxLevel ? `${hero.xp} / ${hero.xpToNext}` : '—'}</span></div>
+          <div className={s.bcUnitBar} style={{ height: 5 }}><div className={s.bcUnitBarFill} style={{ width: `${hero.level < hero.maxLevel ? xpPct : 100}%`, background: 'var(--gold)' }} /></div>
+        </>}
+
+        <div style={{ display: 'flex', gap: 14, margin: '10px 0 8px', fontSize: 11 }}>
+          <span style={{ color: 'var(--red)' }}>ATK {hero.atk}</span>
+          <span style={{ color: 'var(--green)' }}>DEF {hero.def}</span>
+          <span style={{ color: 'var(--text)' }}>PWR {hero.power}</span>
+        </div>
+        {hero.isSick && <div style={{ fontSize: 10, color: 'var(--red)', marginBottom: 6, display:'flex', alignItems:'center', gap:4 }}><IconAlertTriangle size={10} /> Resurrection sickness — stats reduced until it fades</div>}
+        {recoverNote && <div style={{ fontSize: 10, color: 'var(--gold)', marginBottom: 6 }}>{recoverNote}</div>}
+        <div style={{ fontSize: 11, color: factionColor, marginBottom: 6 }}><IconSparkles size={11} /> {hero.abilityName} — {hero.abilityDesc}</div>
+        <div style={{ fontSize: 10, color: 'var(--muted)' }}>Upkeep: {hero.goldUpkeep}g / {hero.manaUpkeep}m per turn</div>
+      </div>
+      {hero.status === 'slain' && (
+        <div className={s.heroCardAction}>
+          {resBlock
+            ? <div className={s.ucardBlocked}>{resBlock}</div>
+            : <AnimBtn className={s.ucardBtn} variant="pop" style={{ background: 'rgba(232,120,120,.15)', color: '#e87878', border: '1px solid rgba(232,120,120,.4)' }} onClick={onResurrect} disabled={loading}>
+                <AnimatedIcon><IconCrown size={12} /></AnimatedIcon> Resurrect — {rc.gold.toLocaleString()}g / {rc.mana.toLocaleString()}m
+              </AnimBtn>
+          }
+        </div>
+      )}
     </div>
   )
 }
@@ -3782,6 +3978,33 @@ function BattleCard({ entry, defaultExpanded = false, compact = false }) {
                 )}
               </div>
             </>}
+
+            {/* ── Hero: only present when brought to this battle ── */}
+            {result.hero && (() => {
+              const h = result.hero
+              const hpPct = h.maxHp ? Math.round((h.hpAfter / h.maxHp) * 100) : 0
+              const hpColor = h.slain ? 'var(--muted)' : hpPct <= 25 ? 'var(--red)' : hpPct <= 60 ? 'var(--gold)' : 'var(--green)'
+              return (
+                <>
+                  <div style={{width:1,alignSelf:'stretch',background:'rgba(255,255,255,.07)',flexShrink:0,marginRight:14}}/>
+                  <div style={{flexShrink:0}}>
+                    <div style={{fontSize:9,letterSpacing:2,textTransform:'uppercase',color:'var(--muted)',marginBottom:7}}>{h.name}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                      <UnitPortrait unitId={h.id} artType={h.artType} factionColor={hpColor} size={24}/>
+                      <div>
+                        <div style={{fontSize:10,fontWeight:600,color: h.slain ? 'var(--red)' : h.downed ? 'var(--gold)' : 'var(--text)'}}>
+                          {h.slain ? 'Slain in battle' : h.downed ? 'Last Stand — survived' : `${h.hpAfter}/${h.maxHp} HP`}
+                        </div>
+                        <div style={{fontSize:8,color:'var(--muted)',marginTop:1}}>
+                          −{h.dmgTaken} HP{h.leveledUp ? ` · Leveled up to ${h.level} (${h.rankTitle})` : ` · +${h.xpGained} XP`}
+                        </div>
+                      </div>
+                    </div>
+                    {h.forcedFlawless && <span style={{fontSize:8,color:'#f0d980',background:'rgba(240,217,128,.12)',border:'1px solid rgba(240,217,128,.35)',padding:'1px 5px',borderRadius:3}}>Radiant Ward triggered</span>}
+                  </div>
+                </>
+              )
+            })()}
 
           </div>
         )
