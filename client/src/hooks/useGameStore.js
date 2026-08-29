@@ -156,8 +156,10 @@ export const useGameStore = create(
       explore:  async (type)   => { const r=await api.explore(type); await get().fetchGameState(); return r },
       build:    async (id)     => { const r=await api.build(id); await get().fetchGameState(); return r },
       recruit:  async (id)     => { const r=await api.recruit(id,5); await get().fetchGameState(); return r },
-      battle:   async (tid,u,item) => { const r=await api.battle(tid,u,item); await get().fetchGameState(); return r },
+      battle:   async (tid,u,item,bringHero) => { const r=await api.battle(tid,u,item,bringHero); await get().fetchGameState(); return r },
       buyAuctionItem: async (id) => { const r=await api.buyItem(id); await get().fetchGameState(); return r },
+      recruitHero:   async () => { const r=await api.recruitHero(); await get().fetchGameState(); return r },
+      resurrectHero: async () => { const r=await api.resurrectHero(); await get().fetchGameState(); return r },
 
       refreshAuction: async (paid) => {
         if (paid) { try { await api.refreshAuction(true) } catch {} }
