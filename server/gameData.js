@@ -1225,7 +1225,9 @@ const POWER_WEIGHTS = {
 // to a player's own faction units -- see server/routes/game.js '/merc/hire'.
 const MERC_UNBOUND_PENALTY = 0.85;
 
-function calcPower(player, buildings, army, factionId) {
+const { HEROES, heroStatsAtLevel, HERO_SICKNESS_MULT } = require('./heroData');
+
+function calcPower(player, buildings, army, factionId, hero) {
   const faction = FACTIONS[factionId];
   if (!faction) return 0;
   let power = (player.land || 0) * POWER_WEIGHTS.land;
@@ -1238,10 +1240,25 @@ function calcPower(player, buildings, army, factionId) {
     const unitDef = lookupFaction?.units.find(u => u.id === a.unit_id);
     if (unitDef) power += a.quantity * unitDef.power * (a.is_merc ? MERC_UNBOUND_PENALTY : 1);
   });
+  // A recruited hero contributes to overall power (and thus this battle's
+  // win chance, since that reads straight off the stored power column) as
+  // long as they're active -- `downed` benches them from calcPower/rankings
+  // until healed past the threshold, and `slain` obviously contributes
+  // nothing. This is independent of whether the hero was "brought" to any
+  // one battle, same as how a player's whole owned army counts toward
+  // power regardless of which units a raid actually commits.
+  if (hero && hero.status === 'active') {
+    const heroDef = HEROES[factionId];
+    if (heroDef) {
+      const stats = heroStatsAtLevel(heroDef, hero.level);
+      const sick = hero.sickness_until && Number(hero.sickness_until) > Date.now();
+      power += stats.power * (sick ? HERO_SICKNESS_MULT : 1);
+    }
+  }
   return Math.round(power);
 }
 
-function calcEconomy(player, buildings, army, factionId) {
+function calcEconomy(player, buildings, army, factionId, hero) {
   const faction = FACTIONS[factionId];
   if (!faction) return { goldGen:0, manaGen:0, goldUpkeep:0, manaUpkeep:0, goldNet:0, manaNet:0 };
   const landGold = Math.floor((player.land || 0) * 1.5);
@@ -1258,6 +1275,13 @@ function calcEconomy(player, buildings, army, factionId) {
     const uDef = faction.units.find(u => u.id === a.unit_id);
     if (uDef) { goldUpkeep += a.quantity * uDef.goldUpkeep; manaUpkeep += a.quantity * uDef.manaUpkeep; }
   });
+  // A kept hero (anything short of slain -- a downed hero is still fed and
+  // housed while recovering) carries its own modest upkeep, same idea as a
+  // unit's goldUpkeep/manaUpkeep field.
+  if (hero && hero.status !== 'slain') {
+    const heroDef = HEROES[factionId];
+    if (heroDef) { goldUpkeep += heroDef.goldUpkeep; manaUpkeep += heroDef.manaUpkeep; }
+  }
   goldUpkeep = Math.round(goldUpkeep);
   manaUpkeep = Math.round(manaUpkeep);
   return { goldGen, manaGen, goldUpkeep, manaUpkeep, goldNet: goldGen - goldUpkeep, manaNet: manaGen - manaUpkeep };
@@ -1332,10 +1356,10 @@ const RESOURCE_TIERS = {
   },
 };
 
-function calcResourceTierReward(tierKey, player, buildings, army, factionId) {
+function calcResourceTierReward(tierKey, player, buildings, army, factionId, hero) {
   const tier = RESOURCE_TIERS[tierKey];
   if (!tier) return null;
-  const eco = calcEconomy(player, buildings, army, factionId);
+  const eco = calcEconomy(player, buildings, army, factionId, hero);
   const perTurnGold = Math.max(0, eco.goldNet) / TURNS_PER_HOUR;
   const perTurnMana = Math.max(0, eco.manaNet) / TURNS_PER_HOUR;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
@@ -1356,8 +1380,8 @@ function calcResourceTierReward(tierKey, player, buildings, army, factionId) {
 // roll itself. Recomputed from the player's live economy on every state
 // fetch, so the preview drifts (intentionally) as their income grows,
 // including the income-scaled ceiling above.
-function calcResourceTierPreviews(player, buildings, army, factionId) {
-  const eco = calcEconomy(player, buildings, army, factionId);
+function calcResourceTierPreviews(player, buildings, army, factionId, hero) {
+  const eco = calcEconomy(player, buildings, army, factionId, hero);
   const perTurnGold = Math.max(0, eco.goldNet) / TURNS_PER_HOUR;
   const perTurnMana = Math.max(0, eco.manaNet) / TURNS_PER_HOUR;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
@@ -1382,4 +1406,5 @@ module.exports = {
   RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews,
   MERC_UNBOUND_PENALTY,
 };
+
 

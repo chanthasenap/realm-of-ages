@@ -82,6 +82,26 @@ const schema = `
     category     TEXT    DEFAULT 'info',
     occurred_at  DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- One faction hero per player (see claude/hero-feature-design.md).
+  -- Its own table, not another army row -- a hero has individual HP/level/
+  -- status that persists across battles, unlike a stackable unit quantity.
+  -- Timestamps are epoch-ms BIGINTs (not DATETIME) so status_since/
+  -- sickness_until/recruited_at can be compared with Date.now() in JS the
+  -- same way on both sql.js and Postgres, without a TIMESTAMPTZ<->string
+  -- conversion in the mix.
+  CREATE TABLE IF NOT EXISTS heroes (
+    player_id      INTEGER PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+    hero_id        TEXT    NOT NULL,
+    level          INTEGER NOT NULL DEFAULT 1,
+    xp             INTEGER NOT NULL DEFAULT 0,
+    hp             INTEGER NOT NULL,
+    max_hp         INTEGER NOT NULL,
+    status         TEXT    NOT NULL DEFAULT 'active',
+    status_since   BIGINT,
+    sickness_until BIGINT,
+    recruited_at   BIGINT
+  );
 `;
 
 // PostgreSQL uses SERIAL instead of INTEGER AUTOINCREMENT
@@ -101,7 +121,7 @@ async function init() {
     }
 
     console.log('✅ Database initialized successfully.');
-    console.log(`   Tables: players, buildings, army, items, battle_log, event_log`);
+    console.log(`   Tables: players, buildings, army, items, battle_log, event_log, heroes`);
     process.exit(0);
   } catch (err) {
     console.error('❌ Database initialization failed:', err.message);

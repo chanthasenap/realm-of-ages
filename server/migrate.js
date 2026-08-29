@@ -38,6 +38,23 @@ async function runMigrations() {
     // which (foreign) faction its unit definition and stats come from.
     `ALTER TABLE army ADD COLUMN IF NOT EXISTS is_merc BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE army ADD COLUMN IF NOT EXISTS merc_faction TEXT`,
+    // Hero feature (claude/hero-feature-design.md) -- one row per player,
+    // created on recruit. init-db.js's CREATE TABLE IF NOT EXISTS only
+    // reaches brand-new databases, so it's duplicated here to patch the
+    // already-running production DB. Timestamps are epoch-ms BIGINTs, not
+    // TIMESTAMPTZ, so they compare directly against Date.now() in JS.
+    `CREATE TABLE IF NOT EXISTS heroes (
+      player_id      INTEGER PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+      hero_id        TEXT    NOT NULL,
+      level          INTEGER NOT NULL DEFAULT 1,
+      xp             INTEGER NOT NULL DEFAULT 0,
+      hp             INTEGER NOT NULL,
+      max_hp         INTEGER NOT NULL,
+      status         TEXT    NOT NULL DEFAULT 'active',
+      status_since   BIGINT,
+      sickness_until BIGINT,
+      recruited_at   BIGINT
+    )`,
   ];
 
   for (const stmt of statements) {
