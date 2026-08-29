@@ -52,7 +52,11 @@ export const api = {
   build:    (buildingId) => req('POST', '/game/build', { buildingId }),
   recruit:  (unitId, qty) => req('POST', '/game/recruit', { unitId, quantity: qty || 5 }),
   hireMerc: (unitId, factionId, qty, costPerUnit) => req('POST', '/game/merc/hire', { unitId, factionId, quantity: qty, costPerUnit }),
-  battle:   (targetId, units, itemId) => req('POST', '/game/battle', { targetId, units, itemId }),
+  battle:   (targetId, units, itemId, bringHero) => req('POST', '/game/battle', { targetId, units, itemId, bringHero }),
+
+  // Hero
+  recruitHero:   () => req('POST', '/game/hero/recruit'),
+  resurrectHero: () => req('POST', '/game/hero/resurrect'),
 
   // Auction
   buyItem:      (itemId) => req('POST', '/game/auction/buy', { itemId }),
