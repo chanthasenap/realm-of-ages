@@ -8,6 +8,12 @@ const db         = require('../db');
 const { FACTIONS, calcPower, calcEconomy, RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews } = require('../gameData');
 const { ITEM_CATALOG } = require('../itemData');
 const { computeStreakReward } = require('../streakReward');
+const {
+  HEROES, heroStatsAtLevel, heroTitleForLevel, heroXpToNext,
+  HERO_RECRUIT_COST, heroResurrectCost, HERO_MAX_LEVEL,
+  HERO_SICKNESS_MS, HERO_SICKNESS_MULT, HERO_DAMAGE_RANGE,
+  heroLastStandChance, heroXpGain,
+} = require('../heroData');
 const router     = express.Router();
 
 // ── Auth middleware ────────────────────────────────────────────────
@@ -17,16 +23,62 @@ function requireAuth(req, res, next) {
 }
 router.use(requireAuth);
 
+// ── Hero helpers ──────────────────────────────────────────────────
+// Shapes the `heroes` row (or its absence) into what the client needs to
+// render the Recruit-tab hero card / hero panel without re-deriving any of
+// the leveling/cost math itself. Returns { available:false } for a faction
+// with no hero defined (shouldn't happen once all 5 factions have one, but
+// keeps this forward-compatible rather than throwing).
+function buildHeroState(factionId, heroRow) {
+  const heroDef = factionId ? HEROES[factionId] : null;
+  if (!heroDef) return { available: false };
+
+  if (!heroRow) {
+    return {
+      available: true, recruited: false,
+      id: heroDef.id, name: heroDef.name, title: heroDef.title, artType: heroDef.artType,
+      abilityName: heroDef.abilityName, abilityDesc: heroDef.abilityDesc,
+      flavor: heroDef.flavor,
+      recruitCost: HERO_RECRUIT_COST,
+      goldUpkeep: heroDef.goldUpkeep, manaUpkeep: heroDef.manaUpkeep,
+      baseAtk: heroDef.atk, baseDef: heroDef.def, basePower: heroDef.power,
+    };
+  }
+
+  const isSick  = !!(heroRow.sickness_until && Number(heroRow.sickness_until) > Date.now());
+  const stats   = heroStatsAtLevel(heroDef, heroRow.level);
+  const sickMul = isSick ? HERO_SICKNESS_MULT : 1;
+  return {
+    available: true, recruited: true,
+    id: heroDef.id, name: heroDef.name, title: heroDef.title, artType: heroDef.artType,
+    abilityName: heroDef.abilityName, abilityDesc: heroDef.abilityDesc,
+    flavor: heroDef.flavor,
+    goldUpkeep: heroDef.goldUpkeep, manaUpkeep: heroDef.manaUpkeep,
+    level: heroRow.level, xp: heroRow.xp, xpToNext: heroXpToNext(heroRow.level),
+    maxLevel: HERO_MAX_LEVEL,
+    rankTitle: heroTitleForLevel(heroRow.level),
+    hp: heroRow.hp, maxHp: heroRow.max_hp,
+    status: heroRow.status,
+    statusSince: heroRow.status_since ? Number(heroRow.status_since) : null,
+    isSick, sicknessUntil: heroRow.sickness_until ? Number(heroRow.sickness_until) : null,
+    atk: Math.round(stats.atk * sickMul), def: Math.round(stats.def * sickMul), power: Math.round(stats.power * sickMul),
+    resurrectCost: heroRow.status === 'slain' ? heroResurrectCost(heroRow.level) : null,
+    recruitedAt: heroRow.recruited_at ? Number(heroRow.recruited_at) : null,
+  };
+}
+
 // ── Helpers ───────────────────────────────────────────────────────
 async function getFullState(playerId) {
   const player       = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
   const buildingRows = await db.all('SELECT * FROM buildings WHERE player_id = ?', [playerId]);
   const armyRows      = await db.all('SELECT * FROM army WHERE player_id = ?', [playerId]);
+  const heroRow       = await db.get('SELECT * FROM heroes WHERE player_id = ?', [playerId]);
   const items         = await db.all('SELECT * FROM items WHERE player_id = ? ORDER BY acquired_at DESC LIMIT 20', [playerId]);
   const events        = await db.all('SELECT * FROM event_log WHERE player_id = ? ORDER BY occurred_at DESC LIMIT 30', [playerId]);
-  const power         = calcPower(player, buildingRows, armyRows, player.faction);
-  const economy       = calcEconomy(player, buildingRows, armyRows, player.faction);
-  const resourceTiers = calcResourceTierPreviews(player, buildingRows, armyRows, player.faction);
+  const power         = calcPower(player, buildingRows, armyRows, player.faction, heroRow);
+  const economy       = calcEconomy(player, buildingRows, armyRows, player.faction, heroRow);
+  const resourceTiers = calcResourceTierPreviews(player, buildingRows, armyRows, player.faction, heroRow);
+  const hero          = buildHeroState(player.faction, heroRow);
 
   // The frontend expects buildings/army as { id: value } maps, not raw DB rows —
   // calcPower/calcEconomy above need the row arrays, so convert only for the response.
@@ -64,7 +116,7 @@ async function getFullState(playerId) {
     justUsedShield: !!player.streak_just_shielded,
   };
 
-  return { player: playerSafe, ...playerSafe, buildings, army, mercs, items, events, power, economy, resourceTiers, streak };
+  return { player: playerSafe, ...playerSafe, buildings, army, mercs, items, events, power, economy, resourceTiers, streak, hero };
 }
 
 async function logEvent(playerId, message, category = 'info') {
@@ -78,7 +130,8 @@ async function updatePower(playerId) {
   const player    = await db.get('SELECT * FROM players WHERE id = ?', [playerId]);
   const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [playerId]);
   const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [playerId]);
-  const power     = calcPower(player, buildings, army, player.faction);
+  const hero      = await db.get('SELECT * FROM heroes WHERE player_id = ?', [playerId]);
+  const power     = calcPower(player, buildings, army, player.faction, hero);
   await db.run('UPDATE players SET power = ? WHERE id = ?', [power, playerId]);
   return power;
 }
@@ -223,7 +276,8 @@ router.post('/explore', async (req, res) => {
     } else {
       const buildings = await db.all('SELECT * FROM buildings WHERE player_id = ?', [player.id]);
       const army      = await db.all('SELECT * FROM army WHERE player_id = ?', [player.id]);
-      ({ goldBonus, manaBonus } = calcResourceTierReward(type, player, buildings, army, player.faction));
+      const heroRow   = await db.get('SELECT * FROM heroes WHERE player_id = ?', [player.id]);
+      ({ goldBonus, manaBonus } = calcResourceTierReward(type, player, buildings, army, player.faction, heroRow));
 
       const tier = RESOURCE_TIERS[type];
       if (Math.random() < tier.itemChance) {
@@ -469,6 +523,82 @@ router.post('/merc/hire', async (req, res) => {
   }
 });
 
+// ── POST /api/game/hero/recruit ───────────────────────────────────
+// One-time, one-per-player purchase of the player's own faction's hero --
+// see claude/hero-feature-design.md §6. Cost is a serious, singular
+// commitment (more than a tier-5 hall, less than GUILD_CREATION_COST) so
+// it reads as the second big thing a player saves up for.
+router.post('/hero/recruit', async (req, res) => {
+  try {
+    const player = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    if (!player.faction) return res.status(400).json({ error: 'Choose a faction first.' });
+
+    const heroDef = HEROES[player.faction];
+    if (!heroDef) return res.status(400).json({ error: 'No hero available for this faction yet.' });
+
+    const existing = await db.get('SELECT player_id FROM heroes WHERE player_id = ?', [player.id]);
+    if (existing) return res.status(400).json({ error: 'You have already recruited your hero.' });
+
+    const { gold: needGold, mana: needMana, turns: needTurns } = HERO_RECRUIT_COST;
+    if (player.gold  < needGold)  return res.status(400).json({ error: `Need ${needGold} gold.` });
+    if (player.mana  < needMana)  return res.status(400).json({ error: `Need ${needMana} mana.` });
+    if (player.turns < needTurns) return res.status(400).json({ error: `Need ${needTurns} turns.` });
+
+    const now = Date.now();
+    await db.run(
+      'INSERT INTO heroes (player_id, hero_id, level, xp, hp, max_hp, status, status_since, recruited_at) VALUES (?, ?, 1, 0, ?, ?, ?, ?, ?)',
+      [player.id, heroDef.id, 100, 100, 'active', now, now]
+    );
+    await db.run(
+      'UPDATE players SET gold = gold - ?, mana = mana - ?, turns = turns - ? WHERE id = ?',
+      [needGold, needMana, needTurns, player.id]
+    );
+    await updatePower(player.id);
+
+    const msg = `${heroDef.name}, ${heroDef.title}, has joined your cause!`;
+    await logEvent(player.id, msg, 'hero');
+    const heroRow = await db.get('SELECT * FROM heroes WHERE player_id = ?', [player.id]);
+    res.json({ ok: true, hero: buildHeroState(player.faction, heroRow), message: msg });
+  } catch (err) {
+    console.error('Hero recruit error:', err);
+    res.status(500).json({ error: 'Hero recruitment failed.' });
+  }
+});
+
+// ── POST /api/game/hero/resurrect ─────────────────────────────────
+// Cheaper than a fresh recruit but scales with level, plus 24h of
+// resurrection sickness (-30% atk/def/power) so death has a real but
+// recoverable consequence -- see §6 of the design doc.
+router.post('/hero/resurrect', async (req, res) => {
+  try {
+    const player  = await db.get('SELECT * FROM players WHERE id = ?', [req.session.playerId]);
+    const heroRow = await db.get('SELECT * FROM heroes WHERE player_id = ?', [player.id]);
+    if (!heroRow) return res.status(400).json({ error: 'You have not recruited a hero yet.' });
+    if (heroRow.status !== 'slain') return res.status(400).json({ error: 'Your hero is not slain.' });
+
+    const heroDef = HEROES[player.faction];
+    const cost = heroResurrectCost(heroRow.level);
+    if (player.gold < cost.gold) return res.status(400).json({ error: `Need ${cost.gold} gold.` });
+    if (player.mana < cost.mana) return res.status(400).json({ error: `Need ${cost.mana} mana.` });
+
+    const now = Date.now();
+    await db.run(
+      'UPDATE heroes SET status = ?, hp = max_hp, status_since = ?, sickness_until = ? WHERE player_id = ?',
+      ['active', now, now + HERO_SICKNESS_MS, player.id]
+    );
+    await db.run('UPDATE players SET gold = gold - ?, mana = mana - ? WHERE id = ?', [cost.gold, cost.mana, player.id]);
+    await updatePower(player.id);
+
+    const msg = `${heroDef?.name || 'Your hero'} rises again -- weakened, but alive.`;
+    await logEvent(player.id, msg, 'hero');
+    const freshRow = await db.get('SELECT * FROM heroes WHERE player_id = ?', [player.id]);
+    res.json({ ok: true, hero: buildHeroState(player.faction, freshRow), message: msg });
+  } catch (err) {
+    console.error('Hero resurrect error:', err);
+    res.status(500).json({ error: 'Resurrection failed.' });
+  }
+});
+
 // ── POST /api/game/battle ─────────────────────────────────────────
 // Casualty model: a proportional loss rolled once per battle, scaled by
 // how close the fight was -- a decisive win/loss rolls toward the bottom
@@ -543,7 +673,7 @@ async function resolveBattleItem(playerId, itemId) {
 
 router.post('/battle', async (req, res) => {
   try {
-    const { targetId, units, itemId } = req.body;
+    const { targetId, units, itemId, bringHero } = req.body;
     const targetIdInt = parseInt(targetId);
     if (!targetIdInt) return res.status(400).json({ error: 'targetId required.' });
 
@@ -560,11 +690,35 @@ router.post('/battle', async (req, res) => {
 
     const { atkMult, winChanceBonus, casualtyReduction, usedItem } = await resolveBattleItem(attacker.id, itemId);
 
+    // ── Hero: optional, never required (design doc §7). Only an 'active'
+    // hero can be brought -- a downed/slain hero silently can't be, rather
+    // than erroring, so a stale client request never blocks the whole raid.
+    const heroDef = HEROES[attacker.faction];
+    const heroRowBefore = await db.get('SELECT * FROM heroes WHERE player_id = ?', [attacker.id]);
+    const bringingHero = !!bringHero && !!heroRowBefore && heroRowBefore.status === 'active' && !!heroDef;
+
+    // Ability pre-effects that change the roll itself (Kaelthorn's win
+    // chance boost, Mordroth's casualty reduction) have to be folded in
+    // BEFORE the win/casualty rolls below -- everything else (Sylvaria/
+    // Nerezza's economic effects, Auravel's forced Flawless) applies after
+    // the outcome is known.
+    let heroWinChanceBonus = 0, heroCasualtyReduction = 0;
+    if (bringingHero) {
+      if (heroDef.abilityId === 'scorched_vengeance') heroWinChanceBonus = 0.10;
+      if (heroDef.abilityId === 'deathless_legion')   heroCasualtyReduction = 0.30;
+    }
+
     const effectiveAtkPower = attacker.power * atkMult;
     let winChance = effectiveAtkPower / (effectiveAtkPower + (defender.power || 1) * 0.8);
-    winChance = Math.min(0.95, Math.max(0.05, winChance + winChanceBonus));
+    winChance = Math.min(0.95, Math.max(0.05, winChance + winChanceBonus + heroWinChanceBonus));
     const win = Math.random() < winChance;
     const powerRatio = defender.power / (attacker.power || 1);
+    const evenness = evennessOf(powerRatio);
+
+    // Auravel's Radiant Ward: independent of rollFlawless's own dominance-
+    // scaled roll, a flat 15% chance (only on a win, matching how Flawless
+    // already only exists as a win outcome) to force zero casualties.
+    const heroForcedFlawless = bringingHero && win && heroDef.abilityId === 'radiant_ward' && Math.random() < 0.15;
 
     // ── Casualties: only the attacker's own committed units are at risk.
     // `units` (unitId -> qty) is the raid modal's selection, which
@@ -576,7 +730,9 @@ router.post('/battle', async (req, res) => {
     // See rollFlawless's comment above: this is what actually makes a
     // Flawless win possible once the committed force is bigger than a
     // handful of units, instead of just the proportional rate's own floor.
-    const casualtyRate = rollFlawless(win, powerRatio) ? 0 : rollCasualtyRate(win, powerRatio, casualtyReduction);
+    const casualtyRate = heroForcedFlawless ? 0
+      : rollFlawless(win, powerRatio) ? 0
+      : rollCasualtyRate(win, powerRatio, casualtyReduction + heroCasualtyReduction);
     const casualties = {};
     let totalCasualties = 0;
     for (const row of armyRows) {
@@ -602,7 +758,8 @@ router.post('/battle', async (req, res) => {
     if (win) {
       const goldGain = Math.round(defender.gold * 0.15 + Math.random() * 50);
       const manaGain = Math.round(defender.mana * 0.10 + Math.random() * 20);
-      const landGain = Math.floor(Math.random() * 8) + 2;
+      // Sylvaria's Verdant Reclamation: +40% land on a win she was brought to.
+      const landGain = Math.round((Math.floor(Math.random() * 8) + 2) * (bringingHero && heroDef.abilityId === 'verdant_reclamation' ? 1.4 : 1));
       await db.run(
         'UPDATE players SET gold = gold + ?, mana = mana + ?, land = land + ?, victories = victories + 1 WHERE id = ?',
         [goldGain, manaGain, landGain, attacker.id]
@@ -620,8 +777,13 @@ router.post('/battle', async (req, res) => {
       await logEvent(attacker.id, msg, 'battle_win');
       result = { win: true, goldGain, manaGain, landGain, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, casualties, totalCasualties, usedItem, message: msg };
     } else {
-      const goldLoss = Math.round(attacker.gold * 0.08);
-      const manaLoss = Math.round(attacker.mana * 0.05);
+      let goldLoss = Math.round(attacker.gold * 0.08);
+      let manaLoss = Math.round(attacker.mana * 0.05);
+      // Nerezza's Riptide Retreat: -50% losses on a defeat she was brought to.
+      if (bringingHero && heroDef.abilityId === 'riptide_retreat') {
+        goldLoss = Math.round(goldLoss * 0.5);
+        manaLoss = Math.round(manaLoss * 0.5);
+      }
       await db.run(
         `UPDATE players SET gold = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, gold - ?), mana = ${db._type === 'postgres' ? 'GREATEST' : 'MAX'}(0, mana - ?), defeats = defeats + 1 WHERE id = ?`,
         [goldLoss, manaLoss, attacker.id]
@@ -636,11 +798,66 @@ router.post('/battle', async (req, res) => {
       result = { win: false, goldLoss, manaLoss, targetName: defender.name, targetFaction: defender.faction, winChance, powerRatio, casualties, totalCasualties, usedItem, message: msg };
     }
 
+    // ── Hero: damage roll, Last Stand save, and XP/leveling. Only applies
+    // when actually brought (bringing them is the whole risk/reward point
+    // -- benching them is always safe, but earns nothing). Mirrors the
+    // *shape* of the casualty roll above so it's the same vocabulary the
+    // player already learned there, not new math (design doc §5).
+    let heroResult = null;
+    if (bringingHero) {
+      const [lo, hi] = HERO_DAMAGE_RANGE[win ? 'win' : 'lose'];
+      const t = 0.6 * evenness + 0.4 * Math.random();
+      const dmgPct = lo + (hi - lo) * t;
+      const dmgHp = Math.max(0, Math.round(heroRowBefore.max_hp * dmgPct));
+      let hp = heroRowBefore.hp - dmgHp;
+      let status = heroRowBefore.status;
+      let statusChanged = false, slain = false, downed = false, saveRolled = false, saveSucceeded = false;
+
+      if (hp <= 0) {
+        saveRolled = true;
+        const saveChance = heroLastStandChance(heroRowBefore.level);
+        if (Math.random() < saveChance) { status = 'downed'; hp = 1; downed = true; saveSucceeded = true; }
+        else                            { status = 'slain';  hp = 0; slain = true; }
+        statusChanged = true;
+      }
+
+      // XP only for battles the hero was actually brought to -- scaled by
+      // how hard-fought the battle was (a stomp teaches a legend little).
+      const xpGain = heroXpGain(evenness);
+      let xp = heroRowBefore.xp + xpGain;
+      let level = heroRowBefore.level;
+      let leveledUp = false;
+      while (level < HERO_MAX_LEVEL && xp >= heroXpToNext(level)) {
+        xp -= heroXpToNext(level);
+        level++;
+        leveledUp = true;
+      }
+      if (level >= HERO_MAX_LEVEL) { level = HERO_MAX_LEVEL; xp = 0; }
+
+      await db.run(
+        `UPDATE heroes SET hp = ?, status = ?, xp = ?, level = ?${statusChanged ? ', status_since = ?' : ''} WHERE player_id = ?`,
+        statusChanged ? [hp, status, xp, level, Date.now(), attacker.id] : [hp, status, xp, level, attacker.id]
+      );
+
+      heroResult = {
+        id: heroDef.id, artType: heroDef.artType,
+        name: heroDef.name, title: heroDef.title, abilityName: heroDef.abilityName,
+        hpBefore: heroRowBefore.hp, hpAfter: hp, maxHp: heroRowBefore.max_hp, dmgTaken: heroRowBefore.hp - hp,
+        status, slain, downed, saveRolled, saveSucceeded,
+        xpGained: xpGain, level, leveledUp, rankTitle: heroTitleForLevel(level),
+        forcedFlawless: !!heroForcedFlawless,
+      };
+
+      if (slain)  await logEvent(attacker.id, `${heroDef.name} has fallen in battle -- a resurrection will be needed.`, 'hero_slain');
+      else if (downed) await logEvent(attacker.id, `${heroDef.name} was struck down but survives, badly wounded.`, 'hero_downed');
+    }
+
     // Recomputes power from the DB, which now reflects any army losses
-    // above as well as the land change -- a costly win leaves the
-    // attacker measurably weaker for their next fight, not just richer.
+    // above, the land change, and any hero status/level change -- a costly
+    // win leaves the attacker measurably weaker for their next fight, not
+    // just richer.
     await updatePower(attacker.id);
-    res.json({ ok: true, ...result });
+    res.json({ ok: true, ...result, hero: heroResult });
   } catch (err) {
     console.error('Battle error:', err);
     res.status(500).json({ error: 'Battle failed.' });
