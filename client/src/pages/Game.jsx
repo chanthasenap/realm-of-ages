@@ -3048,7 +3048,32 @@ export default function Game() {
                   ) : (
                     <>
                       <div className={s.rpHeroName}>{gs.hero.name}</div>
-                      <div className={s.rpHeroStatus} style={{ color: 'var(--muted)' }}>Not yet recruited</div>
+                      <div className={s.rpHeroStatus} style={{ color: 'var(--muted)', marginBottom: 3 }}>Not yet recruited</div>
+                      {/* Saved-toward-recruit progress, right here in the
+                          always-visible sidebar -- so a player can tell
+                          at a glance how close they are without clicking
+                          into Recruit just to check. */}
+                      {gs.hero.recruitCost && (() => {
+                        const need = gs.hero.recruitCost
+                        const goldPct = need.gold ? Math.min(100, Math.round((gold / need.gold) * 100)) : 100
+                        const manaPct = need.mana ? Math.min(100, Math.round((mana / need.mana) * 100)) : 100
+                        return (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8.5, color: 'var(--muted)' }}>
+                              <span>Gold</span><span>{gold.toLocaleString()} / {need.gold.toLocaleString()}</span>
+                            </div>
+                            <div className={s.bcUnitBar} style={{ height: 4, margin: '1px 0 4px' }}>
+                              <div className={s.bcUnitBarFill} style={{ width: `${goldPct}%`, background: goldPct >= 100 ? 'var(--green)' : 'var(--gold)' }} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8.5, color: 'var(--muted)' }}>
+                              <span>Mana</span><span>{mana.toLocaleString()} / {need.mana.toLocaleString()}</span>
+                            </div>
+                            <div className={s.bcUnitBar} style={{ height: 4, margin: '1px 0 0' }}>
+                              <div className={s.bcUnitBarFill} style={{ width: `${manaPct}%`, background: manaPct >= 100 ? 'var(--green)' : 'var(--mana2)' }} />
+                            </div>
+                          </>
+                        )
+                      })()}
                     </>
                   )}
                 </div>
@@ -3555,6 +3580,26 @@ function HeroCard({ hero, factionColor, loading, onRecruit, onResurrect, gold, m
             <span style={{ color: 'var(--mana2)' }}><IconSparkles size={10} /> {need.mana.toLocaleString()}m</span>
             <span style={{ color: 'var(--muted)' }}>{need.turns} turns · one-time</span>
           </div>
+          {block && (() => {
+            const goldPct = need.gold ? Math.min(100, Math.round((gold / need.gold) * 100)) : 100
+            const manaPct = need.mana ? Math.min(100, Math.round((mana / need.mana) * 100)) : 100
+            return (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8.5, color: 'var(--muted)', marginTop: 4 }}>
+                  <span>Gold saved</span><span>{gold.toLocaleString()} / {need.gold.toLocaleString()}</span>
+                </div>
+                <div className={s.bcUnitBar} style={{ height: 4, margin: '1px 0 4px' }}>
+                  <div className={s.bcUnitBarFill} style={{ width: `${goldPct}%`, background: goldPct >= 100 ? 'var(--green)' : 'var(--gold)' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8.5, color: 'var(--muted)' }}>
+                  <span>Mana saved</span><span>{mana.toLocaleString()} / {need.mana.toLocaleString()}</span>
+                </div>
+                <div className={s.bcUnitBar} style={{ height: 4, margin: '1px 0 0' }}>
+                  <div className={s.bcUnitBarFill} style={{ width: `${manaPct}%`, background: manaPct >= 100 ? 'var(--green)' : 'var(--mana2)' }} />
+                </div>
+              </>
+            )
+          })()}
         </div>
         <div className={s.ucardFoot}>
           {block
