@@ -1077,13 +1077,13 @@
 .rpHeroCard {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
   position: relative;
   background: linear-gradient(135deg, color-mix(in srgb, var(--fc, var(--gold)) 14%, var(--bg3)), var(--bg3));
   border: 1px solid transparent;
   border-radius: 10px;
-  padding: 10px;
+  overflow: hidden;
   cursor: pointer;
   transition: transform .15s, box-shadow .15s;
   box-shadow: 0 0 16px -9px color-mix(in srgb, var(--fc, var(--gold)) 60%, transparent);
@@ -1160,8 +1160,24 @@
 @keyframes rpHeroFrameSpin {
   to { --rpHeroFrameAngle: 360deg; }
 }
-.rpHeroThumb { flex-shrink: 0; }
-.rpHeroBody { width: 100%; min-width: 0; }
+.rpHeroThumb {
+  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+/* UnitPortrait always renders a fixed-size square with rounded corners and
+   a border baked into its inline style (no prop to opt out) -- override
+   those here so the art bleeds edge-to-edge on the top/left/right like
+   every other unit card's art area (.ucardHero uses the same override
+   trick). The card's own overflow:hidden + border-radius above supplies
+   the rounded top corners instead of the portrait's own radius. */
+.rpHeroThumb > div {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+}
+.rpHeroBody { width: 100%; min-width: 0; padding: 0 10px 10px; }
 .rpHeroName {
   font-size: 12px;
   font-weight: 600;
