@@ -138,6 +138,10 @@ export default function Game() {
   const [toasts, setToasts]       = useState([])
   const [rpArmyOpen, setRpArmyOpen]   = useState(true)
   const [rpItemsOpen, setRpItemsOpen] = useState(true)
+  // Collapsed by default -- the new Hero widget above it earns the
+  // real-estate this section used to have permanently open, and these
+  // numbers are already visible on the Overview panel.
+  const [rpEmpireOpen, setRpEmpireOpen] = useState(false)
   const [ovEcoOpen, setOvEcoOpen]     = useState(true)
   const [battleConfig, setBattleConfig] = useState(null)  // { targetId } when modal open
   const [bcUnits, setBcUnits]     = useState({})   // { [unitId]: qty }
@@ -2002,15 +2006,15 @@ export default function Game() {
       const hasBuilding = gs?.buildings && Object.values(gs.buildings).some(v => v > 0)
       if (!hasBuilding) return (
         <div className={s.recruitPageWrap}>
-          {heroCard}
+          {heroCard && <div className={s.ucardGrid} style={{ marginBottom: 18 }}>{heroCard}</div>}
           <div className={s.empty}><IconBuildingCastle size={40} opacity={0.2}/><p className={s.emptyT}>No buildings yet</p><p className={s.emptyS}>Build a unit hall to unlock unit recruitment.</p></div>
         </div>
       )
       return (
         <div className={s.recruitPageWrap}>
           <div className={s.ph} style={{marginBottom:10}}><div className={s.ptitle}>Recruit Units</div><div className={s.pdesc}>Each unit requires its own hall. Upgrade the hall to boost ATK & DEF. Mix tiers for army synergy.</div></div>
-          {heroCard}
           <div className={s.ucardGrid}>
+            {heroCard}
             {f.units.map(u => {
               const bldLvl   = gs?.buildings?.[u.req] || 0
               const reqBuilt = bldLvl > 0
@@ -3016,16 +3020,58 @@ export default function Game() {
               <div><span className={s.rkBadge}>Rank #{rankings.findIndex(r=>r._id===player?._id)+1 || '—'} of {rankings.length}</span></div>
             </div>
           </div>
+          {/* ── Hero (highlighted, always expanded) ─────────────────────
+              A persistent status widget so HP/level/status stay visible
+              from anywhere in the game, not just the Recruit tab -- clicking
+              it jumps straight there. Hidden entirely for factions with no
+              hero yet, and while not-recruited it's a compact teaser instead
+              of the full status card. */}
+          {gs?.hero?.available && (
+            <div className={s.rpSection}>
+              <div className={s.rpTitle}>Hero</div>
+              <div className={s.rpHeroCard} style={{ '--fc': f.color }} onClick={() => setPanel('recruit')} data-hero-status={gs.hero.recruited ? gs.hero.status : 'unrecruited'}>
+                <div className={s.rpHeroThumb}><UnitPortrait unitId={gs.hero.id} artType={gs.hero.artType} factionColor={f.color} size={54} /></div>
+                <div className={s.rpHeroBody}>
+                  {gs.hero.recruited ? (
+                    <>
+                      <div className={s.rpHeroName}>{gs.hero.name} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>Lv.{gs.hero.level}</span></div>
+                      <div className={s.bcUnitBar} style={{ height: 5, margin: '3px 0 2px' }}>
+                        <div className={s.bcUnitBarFill} style={{
+                          width: `${gs.hero.maxHp ? Math.round((gs.hero.hp / gs.hero.maxHp) * 100) : 0}%`,
+                          background: gs.hero.status === 'slain' ? 'var(--muted)' : (gs.hero.hp / gs.hero.maxHp) <= 0.25 ? 'var(--red)' : (gs.hero.hp / gs.hero.maxHp) <= 0.6 ? 'var(--gold)' : 'var(--green)',
+                        }} />
+                      </div>
+                      <div className={s.rpHeroStatus} style={{ color: gs.hero.status === 'slain' ? 'var(--red)' : gs.hero.status === 'downed' ? 'var(--gold)' : 'var(--green)' }}>
+                        {gs.hero.status === 'slain' ? 'Slain — needs resurrection' : gs.hero.status === 'downed' ? 'Recovering' : `${gs.hero.hp} / ${gs.hero.maxHp} HP`}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={s.rpHeroName}>{gs.hero.name}</div>
+                      <div className={s.rpHeroStatus} style={{ color: 'var(--muted)' }}>Not yet recruited</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           <div className={s.rpSection} data-tour="empire-stats">
-            <div className={s.rpTitle}>Empire Stats</div>
-            <RpStat imageId="land"         icon={<IconMap size={12}/>}            lbl="Land"        val={`${land} ac`} />
-            <RpStat imageId="free-land"    icon={<IconMap size={12}/>}            lbl="Free Land"   val={`${eco.freeLand} ac`} valCls={eco.freeLand < 10 ? s.red : undefined} />
-            <RpStat imageId="buildings"    icon={<IconBuildingCastle size={12}/>} lbl="Buildings"   val={totalBld} />
-            <RpStat imageId="army"         icon={<IconSword size={12}/>}          lbl="Army"        val={`${totalArmy} units`} />
-            <RpStat imageId="gold-gen"     icon={<IconCoin size={12}/>}           lbl="Gold/hr"     val={`+${eco.goldGen}`}    valCls={s.gold} />
-            <RpStat imageId="mana-gen"     icon={<IconSparkles size={12}/>}       lbl="Mana/hr"     val={`+${eco.manaGen}`}    valCls={s.mana2} />
-            <RpStat imageId="gold-upkeep"  icon={<IconCoin size={12}/>}           lbl="Gold upkeep" val={`-${eco.goldUpkeep}/hr`} valCls={s.red} />
-            <RpStat imageId="mana-upkeep"  icon={<IconSparkles size={12}/>}       lbl="Mana upkeep" val={`-${eco.manaUpkeep}/hr`} valCls={s.red} />
+            <button className={s.rpCollapseTrigger} onClick={() => setRpEmpireOpen(o => !o)}>
+              <span className={s.rpTitle} style={{margin:0}}>Empire Stats</span>
+              <IconChevronDown size={13} style={{ transition: 'transform .2s', transform: rpEmpireOpen ? 'rotate(0deg)' : 'rotate(-90deg)', color: 'var(--muted)' }} />
+            </button>
+            <div className={`${s.rpCollapseBody} ${rpEmpireOpen ? s.rpCollapseOpen : ''}`}>
+              <div>
+                <RpStat imageId="land"         icon={<IconMap size={12}/>}            lbl="Land"        val={`${land} ac`} />
+                <RpStat imageId="free-land"    icon={<IconMap size={12}/>}            lbl="Free Land"   val={`${eco.freeLand} ac`} valCls={eco.freeLand < 10 ? s.red : undefined} />
+                <RpStat imageId="buildings"    icon={<IconBuildingCastle size={12}/>} lbl="Buildings"   val={totalBld} />
+                <RpStat imageId="army"         icon={<IconSword size={12}/>}          lbl="Army"        val={`${totalArmy} units`} />
+                <RpStat imageId="gold-gen"     icon={<IconCoin size={12}/>}           lbl="Gold/hr"     val={`+${eco.goldGen}`}    valCls={s.gold} />
+                <RpStat imageId="mana-gen"     icon={<IconSparkles size={12}/>}       lbl="Mana/hr"     val={`+${eco.manaGen}`}    valCls={s.mana2} />
+                <RpStat imageId="gold-upkeep"  icon={<IconCoin size={12}/>}           lbl="Gold upkeep" val={`-${eco.goldUpkeep}/hr`} valCls={s.red} />
+                <RpStat imageId="mana-upkeep"  icon={<IconSparkles size={12}/>}       lbl="Mana upkeep" val={`-${eco.manaUpkeep}/hr`} valCls={s.red} />
+              </div>
+            </div>
           </div>
           <div className={s.rpSection} data-tour="army-roster">
             <button className={s.rpCollapseTrigger} onClick={() => setRpArmyOpen(o => !o)}>
@@ -3279,7 +3325,13 @@ export default function Game() {
                           <div className={s.bcUnitInfo}>
                             <div className={s.bcUnitName}>{hero.name} <span style={{ fontSize: 8, color: 'var(--muted)', fontWeight: 400 }}>Lv.{hero.level} {hero.rankTitle}</span></div>
                             <div className={s.bcUnitBar}><div className={s.bcUnitBarFill} style={{ width: `${hpPct}%`, background: hpPct <= 25 ? 'var(--red)' : hpPct <= 60 ? 'var(--gold)' : 'var(--green)' }} /></div>
-                            <div className={s.bcUnitOwned}>{hero.hp} / {hero.maxHp} HP{reason ? ` — ${reason}` : ` — ${hero.abilityName}`}</div>
+                            <div className={s.bcUnitOwned}>{hero.hp} / {hero.maxHp} HP{reason ? ` — ${reason}` : ''}</div>
+                            {!reason && (
+                              <div className={s.bcUnitOwned} style={{ marginTop: 1 }}>
+                                <span style={{ color: f.color }}>{hero.abilityName}</span>
+                                {hero.auraType && <> · <span style={{ color: 'var(--gold)' }}>{hero.auraLabel}</span> ({TYPE_LABEL[hero.auraType] || hero.auraType} +20%)</>}
+                              </div>
+                            )}
                           </div>
                           <label className={s.bcHeroSwitch} data-disabled={!eligible}>
                             <input type="checkbox" checked={bcBringHero && eligible} disabled={!eligible} onChange={e => setBcBringHero(e.target.checked)} />
@@ -3458,12 +3510,16 @@ function Stat({ icon, imageId, folder = 'overview', label, value, sub, color, su
   )
 }
 // ── Faction Hero card (Recruit tab) ─────────────────────────────────────────
-// Two states: not-yet-recruited (a big one-time purchase CTA, same visual
-// language as a unit card) and recruited (a status panel with HP/XP bars,
-// current stats, and a Resurrect action when slain). See
-// claude/hero-feature-design.md for the full rationale behind every number
-// referenced here -- this component only ever displays what gs.hero
-// (server/routes/game.js buildHeroState) already computed.
+// A vertical card in the same visual language as a unit card (.ucard) so it
+// reads as part of the same collectible roster grid rather than a separate
+// widget, but wrapped in .heroVCard for a faction-tinted glowing border and
+// animated sheen that marks it as the one-per-faction legendary purchase.
+// Two states: not-yet-recruited (a one-time purchase CTA) and recruited (a
+// status panel with a real HP bar in place of raw stats, an XP bar, and a
+// Resurrect action when slain). See claude/hero-feature-design.md for the
+// full rationale behind every number referenced here -- this component only
+// ever displays what gs.hero (server/routes/game.js buildHeroState) already
+// computed, aura included.
 function HeroCard({ hero, factionColor, loading, onRecruit, onResurrect, gold, mana, turns }) {
   if (!hero?.available) return null
 
@@ -3474,28 +3530,33 @@ function HeroCard({ hero, factionColor, loading, onRecruit, onResurrect, gold, m
       : turns < need.turns ? `Need ${need.turns - turns} more turns`
       : null
     return (
-      <div className={s.heroCard} style={{ '--fc': factionColor }}>
-        <div className={s.heroCardPortrait}><UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={factionColor} size={96} /></div>
-        <div className={s.heroCardBody}>
-          <div className={s.heroCardTitleRow}>
-            <IconCrown size={13} color="var(--gold)" />
-            <span style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--gold)' }}>Faction Hero</span>
+      <div className={`${s.ucard} ${s.heroVCard}`} style={{ '--fc': factionColor }}>
+        <div className={s.ucardHero}>
+          <UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={factionColor} size={168} />
+          <div className={s.ucardHeroOverlay} style={{ background: `linear-gradient(to top, color-mix(in srgb, var(--bg3) 80%, black) 15%, color-mix(in srgb, var(--bg3) 45%, transparent) 38%, transparent 68%)` }} />
+          <div className={s.ucardTopRow}>
+            <span className={s.heroVBadge}><IconCrown size={10} /> Faction Hero</span>
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{hero.name}, {hero.title}</div>
-          {hero.flavor && <div style={{ fontSize: 11, color: 'var(--muted)', margin: '4px 0 8px', lineHeight: 1.5 }}>{hero.flavor}</div>}
-          <div style={{ display: 'flex', gap: 14, marginBottom: 8, fontSize: 11 }}>
-            <span style={{ color: 'var(--red)' }}>ATK {hero.baseAtk}</span>
-            <span style={{ color: 'var(--green)' }}>DEF {hero.baseDef}</span>
-            <span style={{ color: 'var(--text)' }}>PWR {hero.basePower}</span>
+          <div className={s.ucardNameRow}>
+            <span className={s.ucardName}>{hero.name}, {hero.title}</span>
           </div>
-          <div style={{ fontSize: 11, color: factionColor, marginBottom: 10 }}><IconSparkles size={11} /> {hero.abilityName} — {hero.abilityDesc}</div>
+        </div>
+        <div className={s.ucardBody}>
+          {hero.flavor && (
+            <div className={s.ucardDescWrap}>
+              <div className={s.ucardDesc} style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.55 }}>{hero.flavor}</div>
+              <div className={s.ucardDescTooltip}>{hero.flavor}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 10.5, color: factionColor, lineHeight: 1.45 }}><IconSparkles size={11} /> {hero.abilityName} — {hero.abilityDesc}</div>
+          {hero.auraType && <div style={{ fontSize: 10.5, color: 'var(--gold)', lineHeight: 1.45 }}><IconSparkles size={11} /> {hero.auraDesc}</div>}
           <div className={s.ucardCost}>
             <span style={{ color: 'var(--gold)' }}><IconCoin size={10} /> {need.gold.toLocaleString()}g</span>
             <span style={{ color: 'var(--mana2)' }}><IconSparkles size={10} /> {need.mana.toLocaleString()}m</span>
-            <span style={{ color: 'var(--muted)' }}>{need.turns} turns · one-time · optional in battle</span>
+            <span style={{ color: 'var(--muted)' }}>{need.turns} turns · one-time</span>
           </div>
         </div>
-        <div className={s.heroCardAction}>
+        <div className={s.ucardFoot}>
           {block
             ? <div className={s.ucardBlocked}>{block}</div>
             : <AnimBtn className={s.ucardBtn} variant="pop" style={{ background: factionColor + '18', color: factionColor, border: `1px solid ${factionColor}44` }} onClick={onRecruit} disabled={loading}>
@@ -3517,36 +3578,35 @@ function HeroCard({ hero, factionColor, loading, onRecruit, onResurrect, gold, m
   const recoverNote = hero.status === 'downed' ? `Back in the fight in ~${heroMinutesToRecoverThreshold(hero.hp, hero.maxHp)} min` : null
 
   return (
-    <div className={s.heroCard} style={{ '--fc': factionColor }}>
-      <div className={s.heroCardPortrait}><UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={factionColor} size={96} /></div>
-      <div className={s.heroCardBody}>
-        <div className={s.heroCardTitleRow}>
-          <IconCrown size={13} color="var(--gold)" />
-          <span style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--gold)' }}>Lv.{hero.level} {hero.rankTitle}</span>
-          <span style={{ fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: statusColor, marginLeft: 'auto', border: `1px solid ${statusColor}55`, padding: '1px 7px', borderRadius: 8 }}>{statusLabel}</span>
+    <div className={`${s.ucard} ${s.heroVCard}`} style={{ '--fc': factionColor }} data-hero-status={hero.status}>
+      <div className={s.ucardHero}>
+        <UnitPortrait unitId={hero.id} artType={hero.artType} factionColor={factionColor} size={168} />
+        <div className={s.ucardHeroOverlay} style={{ background: `linear-gradient(to top, color-mix(in srgb, var(--bg3) 80%, black) 15%, color-mix(in srgb, var(--bg3) 45%, transparent) 38%, transparent 68%)` }} />
+        <div className={s.ucardTopRow}>
+          <span className={s.heroVBadge}><IconCrown size={10} /> Lv.{hero.level} {hero.rankTitle}</span>
+          <span className={s.heroVStatus} style={{ color: statusColor, borderColor: statusColor + '55' }}>{statusLabel}</span>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{hero.name}, {hero.title}</div>
-
-        <div style={{ margin: '9px 0 3px', display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--muted)' }}><span>HP</span><span>{hero.hp} / {hero.maxHp}</span></div>
-        <div className={s.bcUnitBar} style={{ height: 5 }}><div className={s.bcUnitBarFill} style={{ width: `${hpPct}%`, background: hpColor }} /></div>
+        <div className={s.ucardNameRow}>
+          <span className={s.ucardName}>{hero.name}, {hero.title}</span>
+        </div>
+      </div>
+      <div className={s.ucardBody}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--muted)' }}><span>HP</span><span>{hero.hp} / {hero.maxHp}</span></div>
+        <div className={s.bcUnitBar} style={{ height: 6 }}><div className={s.bcUnitBarFill} style={{ width: `${hpPct}%`, background: hpColor }} /></div>
 
         {hero.status !== 'slain' && <>
-          <div style={{ margin: '8px 0 3px', display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--muted)' }}><span>XP {hero.level < hero.maxLevel ? '' : '(max level)'}</span><span>{hero.level < hero.maxLevel ? `${hero.xp} / ${hero.xpToNext}` : '—'}</span></div>
-          <div className={s.bcUnitBar} style={{ height: 5 }}><div className={s.bcUnitBarFill} style={{ width: `${hero.level < hero.maxLevel ? xpPct : 100}%`, background: 'var(--gold)' }} /></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--muted)' }}><span>XP {hero.level < hero.maxLevel ? '' : '(max level)'}</span><span>{hero.level < hero.maxLevel ? `${hero.xp} / ${hero.xpToNext}` : '—'}</span></div>
+          <div className={s.bcUnitBar} style={{ height: 6 }}><div className={s.bcUnitBarFill} style={{ width: `${hero.level < hero.maxLevel ? xpPct : 100}%`, background: 'var(--gold)' }} /></div>
         </>}
 
-        <div style={{ display: 'flex', gap: 14, margin: '10px 0 8px', fontSize: 11 }}>
-          <span style={{ color: 'var(--red)' }}>ATK {hero.atk}</span>
-          <span style={{ color: 'var(--green)' }}>DEF {hero.def}</span>
-          <span style={{ color: 'var(--text)' }}>PWR {hero.power}</span>
-        </div>
-        {hero.isSick && <div style={{ fontSize: 10, color: 'var(--red)', marginBottom: 6, display:'flex', alignItems:'center', gap:4 }}><IconAlertTriangle size={10} /> Resurrection sickness — stats reduced until it fades</div>}
-        {recoverNote && <div style={{ fontSize: 10, color: 'var(--gold)', marginBottom: 6 }}>{recoverNote}</div>}
-        <div style={{ fontSize: 11, color: factionColor, marginBottom: 6 }}><IconSparkles size={11} /> {hero.abilityName} — {hero.abilityDesc}</div>
+        {hero.isSick && <div style={{ fontSize: 10, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 4 }}><IconAlertTriangle size={10} /> Resurrection sickness — stats reduced until it fades</div>}
+        {recoverNote && <div style={{ fontSize: 10, color: 'var(--gold)' }}>{recoverNote}</div>}
+        <div style={{ fontSize: 10.5, color: factionColor, lineHeight: 1.45 }}><IconSparkles size={11} /> {hero.abilityName} — {hero.abilityDesc}</div>
+        {hero.auraType && <div style={{ fontSize: 10.5, color: 'var(--gold)', lineHeight: 1.45 }}><IconSparkles size={11} /> {hero.auraDesc}</div>}
         <div style={{ fontSize: 10, color: 'var(--muted)' }}>Upkeep: {hero.goldUpkeep}g / {hero.manaUpkeep}m per turn</div>
       </div>
       {hero.status === 'slain' && (
-        <div className={s.heroCardAction}>
+        <div className={s.ucardFoot}>
           {resBlock
             ? <div className={s.ucardBlocked}>{resBlock}</div>
             : <AnimBtn className={s.ucardBtn} variant="pop" style={{ background: 'rgba(232,120,120,.15)', color: '#e87878', border: '1px solid rgba(232,120,120,.4)' }} onClick={onResurrect} disabled={loading}>
@@ -4000,7 +4060,10 @@ function BattleCard({ entry, defaultExpanded = false, compact = false }) {
                         </div>
                       </div>
                     </div>
-                    {h.forcedFlawless && <span style={{fontSize:8,color:'#f0d980',background:'rgba(240,217,128,.12)',border:'1px solid rgba(240,217,128,.35)',padding:'1px 5px',borderRadius:3}}>Radiant Ward triggered</span>}
+                    <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                      {h.forcedFlawless && <span style={{fontSize:8,color:'#f0d980',background:'rgba(240,217,128,.12)',border:'1px solid rgba(240,217,128,.35)',padding:'1px 5px',borderRadius:3}}>Radiant Ward triggered</span>}
+                      {h.auraBonusPower > 0 && <span style={{fontSize:8,color:'var(--gold)',background:'rgba(201,168,76,.12)',border:'1px solid rgba(201,168,76,.35)',padding:'1px 5px',borderRadius:3}}>{h.auraLabel} +{h.auraBonusPower} pwr ({h.auraMatchingUnits} units)</span>}
+                    </div>
                   </div>
                 </>
               )

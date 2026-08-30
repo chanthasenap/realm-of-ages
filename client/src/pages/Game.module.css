@@ -976,42 +976,119 @@
 }
 
 /* ── Faction Hero card (Recruit tab) ─────────────────────────────────────
-   A single, wide, gold-tinted row card rather than a grid tile -- there's
-   only ever one hero per faction (v1), so it reads as a distinct, more
-   important purchase than the unit grid beneath it, not just another card
-   in the same rows/columns. */
-.heroCard {
-  display: flex;
-  align-items: stretch;
-  gap: 18px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--fc, var(--gold)) 10%, var(--bg3)), var(--bg3));
-  border: 1px solid color-mix(in srgb, var(--fc, var(--gold)) 35%, var(--border));
-  border-radius: 12px;
-  padding: 18px;
-  margin-bottom: 18px;
+   Built on .ucard (same vertical grid-tile layout every unit card uses, so
+   it sits naturally as the first tile in .ucardGrid) plus .heroVCard, which
+   layers a faction-tinted gradient-ring border and a slow animated sheen on
+   top -- the one-per-faction legendary purchase should read as a clear cut
+   above the unit grid it sits in, not just another tile in the same color. */
+.heroVCard {
+  border-color: transparent;
+  box-shadow: 0 0 22px -8px color-mix(in srgb, var(--fc, var(--gold)) 60%, transparent);
 }
-@media (max-width: 640px) {
-  .heroCard { flex-direction: column; }
+.heroVCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 10px;
+  padding: 1.5px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--fc, var(--gold)) 95%, white 10%) 0%,
+    color-mix(in srgb, var(--fc, var(--gold)) 30%, transparent) 30%,
+    color-mix(in srgb, var(--fc, var(--gold)) 30%, transparent) 70%,
+    color-mix(in srgb, var(--fc, var(--gold)) 95%, white 10%) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
-.heroCardPortrait {
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-start;
+.heroVCard[data-hero-status="slain"] {
+  box-shadow: 0 0 18px -8px color-mix(in srgb, var(--red) 55%, transparent);
 }
-.heroCardBody { flex: 1; min-width: 0; }
-.heroCardTitleRow {
+.heroVCard[data-hero-status="slain"]::before {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--red) 90%, white 10%) 0%, transparent 30%,
+    transparent 70%, color-mix(in srgb, var(--red) 90%, white 10%) 100%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .heroVCard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: 10px;
+    background: linear-gradient(115deg, transparent 42%, color-mix(in srgb, var(--fc, var(--gold)) 45%, transparent) 50%, transparent 58%);
+    background-size: 240% 240%;
+    background-position: 200% 200%;
+    animation: heroVSheen 6s ease-in-out infinite;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+}
+@keyframes heroVSheen {
+  0%, 100% { background-position: 200% 200%; opacity: 0; }
+  45%      { opacity: .9; }
+  60%      { background-position: -60% -60%; opacity: 0; }
+}
+.heroVBadge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  backdrop-filter: blur(6px);
+  background: rgba(0,0,0,.55);
+  color: var(--gold);
+  border: 1px solid rgba(255,215,120,.35);
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  white-space: nowrap;
+}
+.heroVStatus {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+/* ── Hero widget (right column) ───────────────────────────────────────────
+   Persistent HP/status glance from anywhere in the game, not just the
+   Recruit tab -- clicking it jumps there. Deliberately not collapsible
+   (unlike Empire Stats below it): this is the thing the user asked to be
+   "highlighted", so it always stays visible. */
+.rpHeroCard {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 10px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--fc, var(--gold)) 14%, var(--bg3)), var(--bg3));
+  border: 1px solid color-mix(in srgb, var(--fc, var(--gold)) 40%, var(--border));
+  border-radius: 9px;
+  padding: 9px 10px;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s;
 }
-.heroCardAction {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  min-width: 190px;
+.rpHeroCard:hover { border-color: var(--fc, var(--gold)); transform: translateY(-1px); }
+.rpHeroCard[data-hero-status="slain"] { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+.rpHeroThumb { flex-shrink: 0; }
+.rpHeroBody { flex: 1; min-width: 0; }
+.rpHeroName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.heroCardAction .ucardBtn { padding: 12px 16px; }
+.rpHeroStatus { font-size: 9px; font-weight: 500; }
 
 /* keep ubtn for battle panel raid button */
 .ubtn {
