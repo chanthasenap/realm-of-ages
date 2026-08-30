@@ -1160,10 +1160,24 @@
 @keyframes rpHeroFrameSpin {
   to { --rpHeroFrameAngle: 360deg; }
 }
+/* 16:9 rather than the original 1:1 square -- ~30% shorter overall card
+   height. object-position:'center top' on the <img> (baked into
+   UnitPortrait, untouched by the override below) keeps the crop anchored
+   to the top of the source art, where these character portraits' faces
+   sit, so shortening the box trims from the bottom/shoulders rather than
+   cutting into the face. */
 .rpHeroThumb {
   flex-shrink: 0;
+  /* Flex items default to min-height:auto, and since the <img> inside is
+     sized with a percentage (indefinite for min-content purposes), the
+     browser falls back to the img's own *intrinsic* aspect ratio when
+     computing that automatic minimum -- which silently overrides the
+     aspect-ratio below whenever it would shrink the box below the
+     intrinsic-ratio height. min-height:0 opts out of that so the 16:9
+     ratio actually wins. */
+  min-height: 0;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 16 / 9;
 }
 /* UnitPortrait always renders a fixed-size square with rounded corners and
    a border baked into its inline style (no prop to opt out) -- override
