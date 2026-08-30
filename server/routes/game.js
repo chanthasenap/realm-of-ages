@@ -5,14 +5,14 @@
 
 const express    = require('express');
 const db         = require('../db');
-const { FACTIONS, calcPower, calcEconomy, RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews } = require('../gameData');
+const { FACTIONS, calcPower, calcEconomy, RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews, MERC_UNBOUND_PENALTY, UNIT_TYPES } = require('../gameData');
 const { ITEM_CATALOG } = require('../itemData');
 const { computeStreakReward } = require('../streakReward');
 const {
   HEROES, heroStatsAtLevel, heroTitleForLevel, heroXpToNext,
   HERO_RECRUIT_COST, heroResurrectCost, HERO_MAX_LEVEL,
   HERO_SICKNESS_MS, HERO_SICKNESS_MULT, HERO_DAMAGE_RANGE,
-  heroLastStandChance, heroXpGain,
+  heroLastStandChance, heroXpGain, HERO_AURA_BONUS_PCT,
 } = require('../heroData');
 const router     = express.Router();
 
@@ -36,8 +36,9 @@ function buildHeroState(factionId, heroRow) {
   if (!heroRow) {
     return {
       available: true, recruited: false,
-      id: heroDef.id, name: heroDef.name, title: heroDef.title, artType: heroDef.artType,
+      id: heroDef.id, name: heroDef.name, title: heroDef.title, artType: heroDef.artType, portraitId: heroDef.portraitId,
       abilityName: heroDef.abilityName, abilityDesc: heroDef.abilityDesc,
+      auraType: heroDef.auraType, auraLabel: heroDef.auraLabel, auraDesc: heroDef.auraDesc,
       flavor: heroDef.flavor,
       recruitCost: HERO_RECRUIT_COST,
       goldUpkeep: heroDef.goldUpkeep, manaUpkeep: heroDef.manaUpkeep,
@@ -50,8 +51,9 @@ function buildHeroState(factionId, heroRow) {
   const sickMul = isSick ? HERO_SICKNESS_MULT : 1;
   return {
     available: true, recruited: true,
-    id: heroDef.id, name: heroDef.name, title: heroDef.title, artType: heroDef.artType,
+    id: heroDef.id, name: heroDef.name, title: heroDef.title, artType: heroDef.artType, portraitId: heroDef.portraitId,
     abilityName: heroDef.abilityName, abilityDesc: heroDef.abilityDesc,
+    auraType: heroDef.auraType, auraLabel: heroDef.auraLabel, auraDesc: heroDef.auraDesc,
     flavor: heroDef.flavor,
     goldUpkeep: heroDef.goldUpkeep, manaUpkeep: heroDef.manaUpkeep,
     level: heroRow.level, xp: heroRow.xp, xpToNext: heroXpToNext(heroRow.level),
@@ -697,6 +699,12 @@ router.post('/battle', async (req, res) => {
     const heroRowBefore = await db.get('SELECT * FROM heroes WHERE player_id = ?', [attacker.id]);
     const bringingHero = !!bringHero && !!heroRowBefore && heroRowBefore.status === 'active' && !!heroDef;
 
+    // Fetched here (rather than down by the casualty loop, where it used to
+    // live) because the aura bonus below needs the army's composition
+    // *before* the win-chance roll -- casualties still read from this same
+    // array further down, untouched.
+    const armyRows = await db.all('SELECT * FROM army WHERE player_id = ?', [attacker.id]);
+
     // Ability pre-effects that change the roll itself (Kaelthorn's win
     // chance boost, Mordroth's casualty reduction) have to be folded in
     // BEFORE the win/casualty rolls below -- everything else (Sylvaria/
@@ -708,7 +716,32 @@ router.post('/battle', async (req, res) => {
       if (heroDef.abilityId === 'deathless_legion')   heroCasualtyReduction = 0.30;
     }
 
-    const effectiveAtkPower = attacker.power * atkMult;
+    // ── Hero aura: a battle-only creature-type buff (never touches the
+    // standing power/economy columns -- see heroData.js's HERO_AURA_BONUS_PCT
+    // comment). Only the units in the attacker's own army whose creature
+    // type (UNIT_TYPES, gameData.js) matches heroDef.auraType count; mercs
+    // are included since they're a real strategic choice too, at the same
+    // reduced strength calcPower already gives them everywhere else. Look
+    // the unit up by faction only for its `power` figure -- the type itself
+    // always comes from the flat UNIT_TYPES map, not the per-faction roster,
+    // since this server-side FACTIONS mirror never carried a `type` field.
+    let auraBonusPower = 0, auraMatchingUnits = 0;
+    if (bringingHero && heroDef.auraType) {
+      const homeFaction = FACTIONS[attacker.faction];
+      for (const row of armyRows) {
+        const owned = row.quantity || 0;
+        if (owned <= 0) continue;
+        if (UNIT_TYPES[row.unit_id] !== heroDef.auraType) continue;
+        const lookupFaction = row.is_merc && row.merc_faction ? FACTIONS[row.merc_faction] : homeFaction;
+        const unitDef = lookupFaction?.units.find(u => u.id === row.unit_id);
+        if (!unitDef) continue;
+        auraBonusPower += owned * unitDef.power * (row.is_merc ? MERC_UNBOUND_PENALTY : 1);
+        auraMatchingUnits += owned;
+      }
+      auraBonusPower = Math.round(auraBonusPower * HERO_AURA_BONUS_PCT);
+    }
+
+    const effectiveAtkPower = attacker.power * atkMult + auraBonusPower;
     let winChance = effectiveAtkPower / (effectiveAtkPower + (defender.power || 1) * 0.8);
     winChance = Math.min(0.95, Math.max(0.05, winChance + winChanceBonus + heroWinChanceBonus));
     const win = Math.random() < winChance;
@@ -725,7 +758,6 @@ router.post('/battle', async (req, res) => {
     // pre-fills the player's whole army by default -- trust it only up
     // to what's actually owned per row, and fall back to the whole army
     // when no selection came through at all (still capped by ownership).
-    const armyRows = await db.all('SELECT * FROM army WHERE player_id = ?', [attacker.id]);
     const hasSelection = units && typeof units === 'object' && Object.values(units).some(q => Number(q) > 0);
     // See rollFlawless's comment above: this is what actually makes a
     // Flawless win possible once the committed force is bigger than a
@@ -840,12 +872,13 @@ router.post('/battle', async (req, res) => {
       );
 
       heroResult = {
-        id: heroDef.id, artType: heroDef.artType,
+        id: heroDef.id, artType: heroDef.artType, portraitId: heroDef.portraitId,
         name: heroDef.name, title: heroDef.title, abilityName: heroDef.abilityName,
         hpBefore: heroRowBefore.hp, hpAfter: hp, maxHp: heroRowBefore.max_hp, dmgTaken: heroRowBefore.hp - hp,
         status, slain, downed, saveRolled, saveSucceeded,
         xpGained: xpGain, level, leveledUp, rankTitle: heroTitleForLevel(level),
         forcedFlawless: !!heroForcedFlawless,
+        auraLabel: heroDef.auraLabel, auraBonusPower, auraMatchingUnits,
       };
 
       if (slain)  await logEvent(attacker.id, `${heroDef.name} has fallen in battle -- a resurrection will be needed.`, 'hero_slain');
