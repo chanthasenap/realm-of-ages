@@ -1225,6 +1225,40 @@ const POWER_WEIGHTS = {
 // to a player's own faction units -- see server/routes/game.js '/merc/hire'.
 const MERC_UNBOUND_PENALTY = 0.85;
 
+// ── Unit creature types (for hero auras) ───────────────────────────────────
+// This server-side FACTIONS mirror only ever carried the fields calcPower/
+// calcEconomy needed (atk/def/power/costs) -- it never had client/src/data/
+// factions.js's `type` field (the same one strongVs/weakVs matchup badges
+// read), because nothing server-side needed a creature's type before hero
+// auras. Rather than duplicating that whole schema (role, strongVs, weakVs,
+// adv/disadv aren't used server-side either), this is the minimal mirror:
+// unitId -> type, read by the aura bonus calc in routes/game.js '/battle'.
+// Unit ids are unique across all factions, so one flat map is enough even
+// for hired mercenaries. Keep in sync with the `type` argument (15th
+// positional arg to U()) in client/src/data/factions.js.
+const UNIT_TYPES = {
+  // undead -- every unit here is type 'undead'
+  skeleton: 'undead', zombie: 'undead', ghoul: 'undead', wight: 'undead',
+  shadow: 'undead', specter: 'undead', vampire_spawn: 'undead',
+  death_knight: 'undead', lich: 'undead',
+  // nature
+  dire_wolf: 'beast', giant_spider: 'beast', dryad: 'fey',
+  owlbear: 'monstrosity', werewolf: 'monstrosity', green_hag: 'fey',
+  treant: 'plant', shambling_mound: 'plant', ancient_treant: 'plant',
+  // tide
+  merfolk: 'humanoid', sahuagin: 'humanoid', sea_spawn: 'aberration',
+  merrow: 'humanoid', water_elemental: 'elemental', aboleth: 'aberration',
+  kraken_spawn: 'aberration', marid: 'elemental', storm_giant: 'giant',
+  // flame
+  magmin: 'elemental', hobgoblin: 'humanoid', hell_hound: 'beast',
+  salamander: 'humanoid', azer: 'humanoid', fire_elemental: 'elemental',
+  efreeti: 'elemental', fire_giant: 'giant', red_dragon: 'dragon',
+  // celestial
+  sprite: 'fey', pixie: 'fey', hippogriff: 'monstrosity', pegasus: 'beast',
+  couatl: 'celestial', deva: 'celestial', planetar: 'celestial',
+  solar: 'celestial', empyrean: 'celestial',
+};
+
 const { HEROES, heroStatsAtLevel, HERO_SICKNESS_MULT } = require('./heroData');
 
 function calcPower(player, buildings, army, factionId, hero) {
@@ -1404,7 +1438,7 @@ function calcResourceTierPreviews(player, buildings, army, factionId, hero) {
 module.exports = {
   FACTIONS, AUCTION_ITEMS, POWER_WEIGHTS, calcPower, calcEconomy,
   RESOURCE_TIERS, calcResourceTierReward, calcResourceTierPreviews,
-  MERC_UNBOUND_PENALTY,
+  MERC_UNBOUND_PENALTY, UNIT_TYPES,
 };
 
 

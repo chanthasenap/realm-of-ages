@@ -17,10 +17,35 @@
 // split (which changes atk/def) and the unique ability, not the total.
 // atk/def reuse the exact U() builder formulas from client/src/data/
 // factions.js so hero stat blocks read consistently with every unit's.
+//
+// ── Aura (creature-type buff) ──────────────────────────────────────────────
+// Each hero also carries an `auraType`, matched against a unit's own `type`
+// field in client/src/data/factions.js (the same field the strongVs/weakVs
+// matchup badges read). This is deliberately battle-only, same trigger as
+// the per-hero abilityId effects above: it never touches the player's
+// standing `power` column (calcPower) or economy, only the effective attack
+// power computed for a raid the hero is actually brought on (server/routes/
+// game.js POST /battle) -- so bringing a hero is still the whole risk/reward
+// point, not a passive buff you get for free by parking them at home.
+// HERO_AURA_BONUS_PCT is shared across all heroes so no faction's aura is a
+// strict upgrade; auraType is what varies, chosen from each faction's own
+// roster to reward building around the hero's theme:
+//   - undead: every unit is already type 'undead' -- Mordroth's aura simply
+//     empowers the whole legion, matching Deathless Legion being army-wide too.
+//   - nature: only the treant line (treant/shambling_mound/ancient_treant,
+//     tiers 3-5) is type 'plant' -- fits "Warden of the Deep Root".
+//   - tide: sea_spawn/aboleth/kraken_spawn are type 'aberration' -- the
+//     abyssal monstrosities, fitting "the Abyssal Sovereign".
+//   - flame: magmin/fire_elemental/efreeti are type 'elemental' -- the
+//     living-fire units, fitting "the Ember Warlord".
+//   - celestial: couatl/deva/planetar/solar/empyrean (4 of 9, its biggest
+//     late-game tiers) are type 'celestial' -- fitting "the Radiant Exarch".
+const HERO_AURA_BONUS_PCT = 0.20; // +20% effective power for matching-type units, that raid only
+
 const HEROES = {
   undead: {
     id: 'mordroth', name: 'Mordroth', title: 'the Deathless', factionId: 'undead',
-    artType: 'knight',
+    artType: 'knight', portraitId: 'mordroth',
     str: 90, con: 90, int: 60, spd: 60,
     atk: 90 + Math.floor(60 / 2),   // 120
     def: 90 + Math.floor(60 / 4),   // 105
@@ -28,11 +53,14 @@ const HEROES = {
     abilityId: 'deathless_legion',
     abilityName: 'Deathless Legion',
     abilityDesc: 'While brought to battle, army-wide casualties on this raid are cut by 30%.',
+    auraType: 'undead',
+    auraLabel: 'Ranks of the Dead',
+    auraDesc: 'Aura: while brought to battle, Undead units gain +20% effective power for this raid.',
     goldUpkeep: 15, manaUpkeep: 8,
   },
   nature: {
     id: 'sylvaria', name: 'Sylvaria', title: 'Warden of the Deep Root', factionId: 'nature',
-    artType: 'beast',
+    artType: 'beast', portraitId: 'sylvaria',
     str: 70, con: 100, int: 50, spd: 80,
     atk: 70 + Math.floor(50 / 2),   // 95
     def: 100 + Math.floor(80 / 4), // 120
@@ -40,11 +68,14 @@ const HEROES = {
     abilityId: 'verdant_reclamation',
     abilityName: 'Verdant Reclamation',
     abilityDesc: 'While brought to battle, a victory claims 40% more land.',
+    auraType: 'plant',
+    auraLabel: 'Root and Bough',
+    auraDesc: 'Aura: while brought to battle, Plant units (the treant line) gain +20% effective power for this raid.',
     goldUpkeep: 15, manaUpkeep: 8,
   },
   tide: {
     id: 'nerezza', name: 'Nerezza', title: 'the Abyssal Sovereign', factionId: 'tide',
-    artType: 'wraith',
+    artType: 'wraith', portraitId: 'nerezza',
     str: 80, con: 85, int: 65, spd: 70,
     atk: 80 + Math.floor(65 / 2),   // 112
     def: 85 + Math.floor(70 / 4),   // 102
@@ -52,11 +83,14 @@ const HEROES = {
     abilityId: 'riptide_retreat',
     abilityName: 'Riptide Retreat',
     abilityDesc: 'While brought to battle, a defeat costs 50% less gold and mana.',
+    auraType: 'aberration',
+    auraLabel: "Abyssal Communion",
+    auraDesc: 'Aura: while brought to battle, Aberration units gain +20% effective power for this raid.',
     goldUpkeep: 15, manaUpkeep: 8,
   },
   flame: {
     id: 'kaelthorn', name: 'Kaelthorn', title: 'the Ember Warlord', factionId: 'flame',
-    artType: 'warrior',
+    artType: 'warrior', portraitId: 'kaelthorn',
     str: 110, con: 70, int: 80, spd: 40,
     atk: 110 + Math.floor(80 / 2),  // 150
     def: 70 + Math.floor(40 / 4),   // 80
@@ -64,11 +98,14 @@ const HEROES = {
     abilityId: 'scorched_vengeance',
     abilityName: 'Scorched Vengeance',
     abilityDesc: 'While brought to battle, your win chance for this raid is increased by 10%.',
+    auraType: 'elemental',
+    auraLabel: 'Living Flame',
+    auraDesc: 'Aura: while brought to battle, Elemental units gain +20% effective power for this raid.',
     goldUpkeep: 15, manaUpkeep: 8,
   },
   celestial: {
     id: 'auravel', name: 'Auravel', title: 'the Radiant Exarch', factionId: 'celestial',
-    artType: 'mage',
+    artType: 'mage', portraitId: 'auravel',
     str: 60, con: 70, int: 110, spd: 60,
     atk: 60 + Math.floor(110 / 2),  // 115
     def: 70 + Math.floor(60 / 4),   // 85
@@ -76,6 +113,9 @@ const HEROES = {
     abilityId: 'radiant_ward',
     abilityName: 'Radiant Ward',
     abilityDesc: 'While brought to battle, 15% chance to force a Flawless result (zero casualties) this raid.',
+    auraType: 'celestial',
+    auraLabel: 'Choir Ascendant',
+    auraDesc: 'Aura: while brought to battle, Celestial units gain +20% effective power for this raid.',
     goldUpkeep: 15, manaUpkeep: 8,
   },
 };
@@ -168,7 +208,7 @@ function heroXpGain(evenness) {
 }
 
 module.exports = {
-  HEROES,
+  HEROES, HERO_AURA_BONUS_PCT,
   HERO_MAX_LEVEL, HERO_LEVEL_STAT_PCT, HERO_MAX_HP,
   heroStatsAtLevel, heroTitleForLevel, heroXpToNext,
   HERO_RECRUIT_COST, heroResurrectCost,
