@@ -208,6 +208,29 @@
   margin-bottom: 10px;
   transition: color .15s;
 }
+/* Count badge for a collapsible section title (e.g. "Items"), replacing a
+   plain "(N)" -- a dark-neutral pill reads at a glance even while the
+   section is collapsed, instead of parenthesized text that blends into
+   the rest of the (already muted, letter-spaced) title. Isolated in its
+   own span so the pill's own background/color don't inherit the title's
+   uppercase/letter-spacing text treatment. */
+.rpCountPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--bg4);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: middle;
+}
 
 .rpArmy {
   display: flex;

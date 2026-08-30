@@ -3136,7 +3136,7 @@ export default function Game() {
           {gs?.items?.length > 0 && (
             <div className={s.rpSection}>
               <button className={s.rpCollapseTrigger} onClick={() => setRpItemsOpen(o => !o)}>
-                <span className={s.rpTitle} style={{margin:0}}>Items ({gs.items.length})</span>
+                <span className={s.rpTitle} style={{margin:0}}>Items<span className={s.rpCountPill}>{gs.items.length}</span></span>
                 <IconChevronDown size={13} style={{ transition: 'transform .2s', transform: rpItemsOpen ? 'rotate(0deg)' : 'rotate(-90deg)', color: 'var(--muted)' }} />
               </button>
               <div className={`${s.rpCollapseBody} ${rpItemsOpen ? s.rpCollapseOpen : ''}`}>
