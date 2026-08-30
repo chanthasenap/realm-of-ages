@@ -3030,7 +3030,7 @@ export default function Game() {
             <div className={s.rpSection}>
               <div className={s.rpTitle}>Hero</div>
               <div className={s.rpHeroCard} style={{ '--fc': f.color }} onClick={() => setPanel('recruit')} data-hero-status={gs.hero.recruited ? gs.hero.status : 'unrecruited'}>
-                <div className={s.rpHeroThumb}><UnitPortrait unitId={gs.hero.id} artType={gs.hero.artType} factionColor={f.color} size={54} /></div>
+                <div className={s.rpHeroThumb}><UnitPortrait unitId={gs.hero.id} artType={gs.hero.artType} factionColor={f.color} size={160} /></div>
                 <div className={s.rpHeroBody}>
                   {gs.hero.recruited ? (
                     <>

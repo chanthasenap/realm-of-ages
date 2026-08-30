@@ -1064,22 +1064,104 @@
    Persistent HP/status glance from anywhere in the game, not just the
    Recruit tab -- clicking it jumps there. Deliberately not collapsible
    (unlike Empire Stats below it): this is the thing the user asked to be
-   "highlighted", so it always stays visible. */
+   "highlighted", so it always stays visible. Stacked vertically (portrait
+   on top, full sidebar width) rather than the old thumb+text row -- a
+   small square next to text can only ever be so big before it crowds the
+   name/status column, and the whole point here is to let the art itself
+   read as the highlight. */
+@property --rpHeroFrameAngle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
 .rpHeroCard {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  position: relative;
   background: linear-gradient(135deg, color-mix(in srgb, var(--fc, var(--gold)) 14%, var(--bg3)), var(--bg3));
-  border: 1px solid color-mix(in srgb, var(--fc, var(--gold)) 40%, var(--border));
-  border-radius: 9px;
-  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 10px;
   cursor: pointer;
-  transition: border-color .15s, transform .15s;
+  transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 0 16px -9px color-mix(in srgb, var(--fc, var(--gold)) 60%, transparent);
 }
-.rpHeroCard:hover { border-color: var(--fc, var(--gold)); transform: translateY(-1px); }
-.rpHeroCard[data-hero-status="slain"] { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+.rpHeroCard:hover { transform: translateY(-1px); box-shadow: 0 0 22px -7px color-mix(in srgb, var(--fc, var(--gold)) 75%, transparent); }
+/* static gradient-ring border, same masked-ring trick as .heroVCard::before */
+.rpHeroCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 10px;
+  padding: 1.5px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--fc, var(--gold)) 95%, white 10%) 0%,
+    color-mix(in srgb, var(--fc, var(--gold)) 25%, transparent) 30%,
+    color-mix(in srgb, var(--fc, var(--gold)) 25%, transparent) 70%,
+    color-mix(in srgb, var(--fc, var(--gold)) 95%, white 10%) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.rpHeroCard[data-hero-status="slain"] {
+  box-shadow: 0 0 16px -9px color-mix(in srgb, var(--red) 55%, transparent);
+}
+.rpHeroCard[data-hero-status="slain"]::before {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--red) 90%, white 10%) 0%, transparent 30%,
+    transparent 70%, color-mix(in srgb, var(--red) 90%, white 10%) 100%);
+}
+/* Animated "chasing light" frame -- two bright arcs continuously circling
+   the ring, in the spirit of the two-segment rotating border effect at
+   codepen.io/Rplus/pen/abPLGx. That pen animates `clip` rects sized to one
+   fixed box; this reaches the same look with a conic-gradient whose start
+   angle is animated (via the registered --rpHeroFrameAngle custom property
+   above, so the browser can interpolate it smoothly), masked down to a
+   ring the same way .heroVCard::before is -- so it rotates cleanly around
+   rounded corners at any card size instead of needing per-box pixel rects.
+   Gated behind prefers-reduced-motion like the big card's sheen. */
+@media (prefers-reduced-motion: no-preference) {
+  .rpHeroCard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: 10px;
+    padding: 1.5px;
+    background: conic-gradient(from var(--rpHeroFrameAngle),
+      transparent 0%,
+      color-mix(in srgb, var(--fc, var(--gold)) 95%, white 30%) 6%,
+      transparent 16%,
+      transparent 50%,
+      color-mix(in srgb, var(--fc, var(--gold)) 95%, white 30%) 56%,
+      transparent 66%,
+      transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: rpHeroFrameSpin 3.5s linear infinite;
+  }
+  .rpHeroCard[data-hero-status="slain"]::after {
+    background: conic-gradient(from var(--rpHeroFrameAngle),
+      transparent 0%,
+      color-mix(in srgb, var(--red) 95%, white 30%) 6%,
+      transparent 16%,
+      transparent 50%,
+      color-mix(in srgb, var(--red) 95%, white 30%) 56%,
+      transparent 66%,
+      transparent 100%);
+  }
+}
+@keyframes rpHeroFrameSpin {
+  to { --rpHeroFrameAngle: 360deg; }
+}
 .rpHeroThumb { flex-shrink: 0; }
-.rpHeroBody { flex: 1; min-width: 0; }
+.rpHeroBody { width: 100%; min-width: 0; }
 .rpHeroName {
   font-size: 12px;
   font-weight: 600;
